@@ -13,8 +13,7 @@ interface TiltCardProps {
 
 const TiltCard: React.FC<TiltCardProps> = ({ children, className = '', onClick }) => {
   const cardRef = React.useRef<HTMLDivElement>(null);
-  const [rotation, setRotation] = React.useState({ x: 0, y: 0 });
-  const [glare, setGlare] = React.useState({ x: 50, y: 50, opacity: 0 });
+  const glareRef = React.useRef<HTMLDivElement>(null);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!cardRef.current) return;
@@ -30,17 +29,25 @@ const TiltCard: React.FC<TiltCardProps> = ({ children, className = '', onClick }
     const rotateX = ((y - centerY) / centerY) * -10; 
     const rotateY = ((x - centerX) / centerX) * 10;
 
-    setRotation({ x: rotateX, y: rotateY });
-    setGlare({
-      x: (x / rect.width) * 100,
-      y: (y / rect.height) * 100,
-      opacity: 0.3 // Max glare opacity
-    });
+    // Apply rotation directly to DOM
+    cardRef.current.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
+
+    // Apply glare directly to DOM
+    if (glareRef.current) {
+        const glareX = (x / rect.width) * 100;
+        const glareY = (y / rect.height) * 100;
+        glareRef.current.style.background = `radial-gradient(circle at ${glareX}% ${glareY}%, rgba(255,255,255,0.3) 0%, transparent 80%)`;
+        glareRef.current.style.opacity = '0.3';
+    }
   };
 
   const handleMouseLeave = () => {
-    setRotation({ x: 0, y: 0 });
-    setGlare((prev) => ({ ...prev, opacity: 0 }));
+    if (cardRef.current) {
+        cardRef.current.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
+    }
+    if (glareRef.current) {
+        glareRef.current.style.opacity = '0';
+    }
   };
 
   return (
@@ -50,19 +57,16 @@ const TiltCard: React.FC<TiltCardProps> = ({ children, className = '', onClick }
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       onClick={onClick}
-      style={{
-        transform: `perspective(1000px) rotateX(${rotation.x}deg) rotateY(${rotation.y}deg) scale3d(1.02, 1.02, 1.02)`,
-      }}
+      // Initial state styles handled in CSS/ClassName or defaults above
     >
       {children}
       {/* Glare Effect */}
       <div
-        className="absolute inset-0 rounded-2xl pointer-events-none z-20"
+        ref={glareRef}
+        className="absolute inset-0 rounded-2xl pointer-events-none z-20 transition-opacity duration-200 ease"
         style={{
-          background: `radial-gradient(circle at ${glare.x}% ${glare.y}%, rgba(255,255,255,0.3) 0%, transparent 80%)`,
-          opacity: glare.opacity,
           mixBlendMode: 'overlay',
-          transition: 'opacity 0.2s ease',
+          opacity: 0, // Start invisible
         }}
       />
     </div>

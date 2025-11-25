@@ -8,7 +8,7 @@ import * as React from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { chatWithGemini, analyzeVideo, transcribeAudio, generateSpeech, generateSmartReplies } from '../services/geminiService';
 import { useLiveSession } from '../hooks/useLiveSession';
-import { ChatIcon, MicrophoneOnIcon, MicrophoneOffIcon, UploadIcon, VideoIcon, MapIcon, SpeakerLoudIcon, RobotIcon, SparkleIcon, TrashIcon } from './icons';
+import { ChatIcon, MicrophoneOnIcon, MicrophoneOffIcon, UploadIcon, VideoIcon, MapIcon, SpeakerLoudIcon, RobotIcon, SparkleIcon, TrashIcon, EditIcon } from './icons';
 import Spinner from './Spinner';
 import { dataURLtoFile } from '../utils/helpers';
 
@@ -21,7 +21,11 @@ interface Message {
     isThinking?: boolean;
 }
 
-const ChatView: React.FC = () => {
+interface ChatViewProps {
+    onEditImage?: (file: File) => void;
+}
+
+const ChatView: React.FC<ChatViewProps> = ({ onEditImage }) => {
     const { t } = useLanguage();
     const [messages, setMessages] = React.useState<Message[]>([{
         id: 'welcome',
@@ -178,18 +182,105 @@ const ChatView: React.FC = () => {
         }
     };
 
-    // Simple Markdown Renderer
+    const handleEditAttachedImage = (imgSrc: string) => {
+        if (onEditImage) {
+            const file = dataURLtoFile(imgSrc, 'chat-image.png');
+            onEditImage(file);
+        }
+    };
+
+    // Enhanced Markdown Renderer
     const renderText = (text: string) => {
-        const parts = text.split(/(\*\*.*?\*\*|`.*?`)/g);
-        return parts.map((part, index) => {
-            if (part.startsWith('**') && part.endsWith('**')) {
-                return <strong key={index}>{part.slice(2, -2)}</strong>;
+        const elements: React.ReactNode[] = [];
+        
+        // Split by code blocks first: ```lang ... ```
+        const parts = text.split(/```(\w*)\n([\s\S]*?)```/g);
+        
+        for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
+            
+            // Even indices are regular text, Odd indices are code block parts (lang, code, lang, code...)
+            // The split captures the capturing groups. 
+            // Index 0: text before first block
+            // Index 1: lang of first block
+            // Index 2: code of first block
+            // Index 3: text after first block
+            
+            if (i % 3 === 0) {
+                // Regular text processing (lines, bold, code spans)
+                if (!part.trim()) continue;
+                
+                const lines = part.split('\n');
+                let currentList: React.ReactNode[] = [];
+                let inList = false;
+
+                lines.forEach((line, lineIdx) => {
+                    const trimmed = line.trim();
+                    const isListItem = trimmed.startsWith('- ') || trimmed.startsWith('* ') || /^\d+\./.test(trimmed);
+                    const isHeader = trimmed.startsWith('###');
+
+                    if (inList && !isListItem) {
+                        elements.push(<ul key={`list-${i}-${lineIdx}`} className="list-disc list-inside mb-2 pl-2">{currentList}</ul>);
+                        currentList = [];
+                        inList = false;
+                    }
+
+                    const processInline = (content: string) => {
+                        return content.split(/(\*\*.*?\*\*|`.*?`)/g).map((span, j) => {
+                            if (span.startsWith('**') && span.endsWith('**')) {
+                                return <strong key={j} className="font-bold text-gray-900 dark:text-white">{span.slice(2, -2)}</strong>;
+                            }
+                            if (span.startsWith('`') && span.endsWith('`')) {
+                                return <code key={j} className="bg-gray-200 dark:bg-gray-700 px-1 rounded text-sm font-mono text-red-500 dark:text-red-300">{span.slice(1, -1)}</code>;
+                            }
+                            return span;
+                        });
+                    };
+
+                    if (isListItem) {
+                        inList = true;
+                        const content = trimmed.replace(/^[-*]\s+|^\d+\.\s+/, '');
+                        currentList.push(<li key={`li-${i}-${lineIdx}`}>{processInline(content)}</li>);
+                    } else if (isHeader) {
+                        const content = trimmed.replace(/^###\s+/, '');
+                        elements.push(<h3 key={`h3-${i}-${lineIdx}`} className="text-lg font-bold mt-4 mb-2 text-gray-800 dark:text-gray-100">{processInline(content)}</h3>);
+                    } else if (trimmed === '') {
+                        elements.push(<br key={`br-${i}-${lineIdx}`} />);
+                    } else {
+                        elements.push(<p key={`p-${i}-${lineIdx}`} className="mb-2 leading-relaxed">{processInline(line)}</p>);
+                    }
+                });
+
+                if (inList && currentList.length > 0) {
+                    elements.push(<ul key={`list-end-${i}`} className="list-disc list-inside mb-2 pl-2">{currentList}</ul>);
+                }
+            } else if (i % 3 === 1) {
+                // This is the language tag, skip it, we'll use it in the next iteration
+                continue;
+            } else if (i % 3 === 2) {
+                // This is the code block content
+                const lang = parts[i - 1] || 'text';
+                const code = part;
+                elements.push(
+                    <div key={`code-${i}`} className="my-4 rounded-lg overflow-hidden bg-gray-900 text-gray-100 shadow-md border border-gray-700">
+                        <div className="flex justify-between items-center px-4 py-1 bg-gray-800 border-b border-gray-700 text-xs text-gray-400 uppercase font-semibold select-none">
+                            <span>{lang}</span>
+                            <button 
+                                onClick={() => navigator.clipboard.writeText(code.trim())}
+                                className="hover:text-white transition-colors"
+                            >
+                                Copy
+                            </button>
+                        </div>
+                        <pre className="p-4 overflow-x-auto custom-scrollbar">
+                            <code className="font-mono text-sm">{code.trim()}</code>
+                        </pre>
+                    </div>
+                );
             }
-            if (part.startsWith('`') && part.endsWith('`')) {
-                return <code key={index} className="bg-gray-200 dark:bg-gray-700 px-1 rounded text-sm font-mono text-red-500 dark:text-red-300">{part.slice(1, -1)}</code>;
-            }
-            return part;
-        });
+        }
+
+        return elements;
     };
 
     return (
@@ -278,8 +369,22 @@ const ChatView: React.FC = () => {
                                     
                                     <div className={`max-w-[85%] space-y-2`}>
                                         <div className={`p-4 rounded-2xl shadow-sm ${msg.role === 'user' ? 'bg-white/80 dark:bg-gray-800/80 text-gray-800 dark:text-gray-100 rounded-tr-none border border-theme-accent/20' : 'bg-white/90 dark:bg-gray-900/90 text-gray-800 dark:text-gray-200 rounded-tl-none border border-gray-200 dark:border-gray-700'}`}>
-                                            {msg.image && <img src={msg.image} alt="Attachment" className="max-h-64 rounded-lg mb-3 object-cover shadow-sm" />}
-                                            <div className="prose dark:prose-invert text-sm leading-relaxed whitespace-pre-wrap">
+                                            {msg.image && (
+                                                <div className="relative group mb-3 inline-block">
+                                                    <img src={msg.image} alt="Attachment" className="max-h-64 rounded-lg object-cover shadow-sm" />
+                                                    {onEditImage && (
+                                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+                                                            <button 
+                                                                onClick={() => handleEditAttachedImage(msg.image!)} 
+                                                                className="bg-white text-gray-800 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-gray-200 transition-colors"
+                                                            >
+                                                                <EditIcon className="w-4 h-4"/> Edit
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                            <div className="prose dark:prose-invert text-sm leading-relaxed whitespace-pre-wrap break-words">
                                                 {renderText(msg.text)}
                                             </div>
                                         </div>

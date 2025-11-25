@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -20,12 +21,12 @@ interface DrawingCanvasProps {
 
 const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ imageElement, brushSize, brushColor, onDrawEnd }, ref) => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const cursorRef = React.useRef<HTMLDivElement>(null);
   const isDrawing = React.useRef(false);
   const [size, setSize] = React.useState({ width: 0, height: 0 });
   
+  // Used to toggle cursor visibility
   const [isHovering, setIsHovering] = React.useState(false);
-  const [cursorPos, setCursorPos] = React.useState({ x: 0, y: 0 });
-
 
   const updateCanvasSize = React.useCallback(() => {
     if (imageElement) {
@@ -73,7 +74,12 @@ const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ 
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    setCursorPos({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY });
+    // Imperatively update cursor position for performance
+    if (cursorRef.current) {
+        cursorRef.current.style.left = `${e.nativeEvent.offsetX}px`;
+        cursorRef.current.style.top = `${e.nativeEvent.offsetY}px`;
+    }
+
     if (!isDrawing.current) return;
     const { x, y } = getCoords(e);
     const context = canvasRef.current?.getContext('2d');
@@ -160,30 +166,34 @@ const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ 
   }));
 
   return (
-    <div className="absolute top-0 left-0 w-full h-full">
+    <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <canvas
           ref={canvasRef}
           width={size.width}
           height={size.height}
-          className="w-full h-full cursor-crosshair"
+          className="w-full h-full pointer-events-auto cursor-none"
           onMouseDown={startDrawing}
           onMouseMove={draw}
           onMouseUp={stopDrawing}
           onMouseLeave={() => { stopDrawing(); setIsHovering(false); }}
           onMouseEnter={() => setIsHovering(true)}
         />
-        {isHovering && (
-             <div
-                className="absolute bg-red-500/30 border-2 border-red-500 rounded-full pointer-events-none"
-                style={{
-                    left: cursorPos.x,
-                    top: cursorPos.y,
-                    width: brushSize,
-                    height: brushSize,
-                    transform: 'translate(-50%, -50%)',
-                }}
-            />
-        )}
+        {/* Cursor is conditionally rendered but position is updated via Ref/CSS */}
+        <div
+            ref={cursorRef}
+            className="absolute rounded-full pointer-events-none transition-opacity duration-75 will-change-transform"
+            style={{
+                width: brushSize,
+                height: brushSize,
+                transform: 'translate(-50%, -50%)',
+                border: '2px solid rgba(255, 50, 50, 0.8)',
+                boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.6)', // White outline for better visibility
+                backgroundColor: 'rgba(255, 50, 50, 0.1)',
+                opacity: isHovering ? 1 : 0,
+                left: 0, 
+                top: 0
+            }}
+        />
     </div>
   );
 });

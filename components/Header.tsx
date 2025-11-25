@@ -1,4 +1,3 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -12,6 +11,48 @@ import ThemeSelector from './ThemeSelector';
 import ModeSelector from './ModeSelector';
 import BackgroundSelector from './BackgroundSelector';
 
+// Internal component to handle time updates independently
+const DigitalClock: React.FC = () => {
+    const { language } = useLanguage();
+    const [currentTime, setCurrentTime] = React.useState(new Date());
+
+    React.useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(new Date());
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const formatDate = (date: Date) => {
+        return date.toLocaleDateString(language.replace('_', '-'), {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+    };
+
+    const formatTime = (date: Date) => {
+        return date.toLocaleTimeString(language.replace('_', '-'), {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+        });
+    };
+
+    return (
+        <div className="text-right hidden lg:block">
+            <div className="font-mono text-lg font-bold text-gray-800 dark:text-gray-200 tracking-wider leading-none">
+                {formatTime(currentTime)}
+            </div>
+            <div className="text-[10px] uppercase font-semibold tracking-widest text-gray-500 dark:text-gray-400 mt-1">
+                {formatDate(currentTime)}
+            </div>
+        </div>
+    );
+};
+
 interface HeaderProps {
     onUploadClick: () => void;
     onWikiClick: () => void;
@@ -19,15 +60,10 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onUploadClick, onWikiClick, onGoHome }) => {
-  const { t, language } = useLanguage();
-  const [currentTime, setCurrentTime] = React.useState(new Date());
+  const { t } = useLanguage();
   const [isOnline, setIsOnline] = React.useState(navigator.onLine);
 
   React.useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
@@ -35,30 +71,10 @@ const Header: React.FC<HeaderProps> = ({ onUploadClick, onWikiClick, onGoHome })
     window.addEventListener('offline', handleOffline);
 
     return () => {
-      clearInterval(timer);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString(language.replace('_', '-'), {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString(language.replace('_', '-'), {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-    });
-  };
-
 
   return (
     <header className="w-full py-3 px-4 md:px-8 glass sticky top-0 z-50 border-b-0 shadow-sm transition-all duration-300">
@@ -84,14 +100,9 @@ const Header: React.FC<HeaderProps> = ({ onUploadClick, onWikiClick, onGoHome })
                 style={{ backgroundSize: '200% 200%', animation: 'animated-gradient-text 5s ease infinite reverse' }} />
         </div>
         <div className="flex-1 flex justify-end items-center gap-4">
-            <div className="text-right hidden lg:block">
-                 <div className="font-mono text-lg font-bold text-gray-800 dark:text-gray-200 tracking-wider leading-none">
-                    {formatTime(currentTime)}
-                 </div>
-                 <div className="text-[10px] uppercase font-semibold tracking-widest text-gray-500 dark:text-gray-400 mt-1">
-                    {formatDate(currentTime)}
-                 </div>
-            </div>
+            
+            <DigitalClock />
+
              <div className="h-8 w-px bg-gray-300 dark:bg-gray-700 hidden lg:block mx-1"></div>
             <button
               onClick={onUploadClick}

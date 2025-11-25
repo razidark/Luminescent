@@ -338,7 +338,7 @@ const App: React.FC = () => {
     }
 
     if (activeTab === 'chat') {
-        return <ChatView />;
+        return <ChatView onEditImage={(file) => handleUploadAndNavigate(file, 'erase')} />;
     }
 
     if (activeTab === 'generate') {

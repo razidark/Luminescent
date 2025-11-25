@@ -589,7 +589,8 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children, curren
     }, [currentImage, handleApiError, t, setError]);
 
 
-    const value: EditorContextState = {
+    // Use useMemo to stable the context value and prevent unnecessary re-renders of consumers
+    const value = React.useMemo<EditorContextState>(() => ({
         currentImage,
         isLoading,
         loadingMessage,
@@ -635,7 +636,49 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children, curren
         handleGenerateCreativeText,
         handleDetectObjects,
         handleGenerateExpansionSuggestions,
-    };
+    }), [
+        currentImage,
+        isLoading,
+        loadingMessage,
+        error,
+        prompt,
+        memeSuggestions,
+        captionSuggestions,
+        captionSources,
+        isPickingColor,
+        sourceColor,
+        // Handlers are already stable via useCallback
+        handleMagicErase,
+        handleSelectiveAdjust,
+        handleApplyRetouch,
+        handleApplyHeal,
+        handleApplyFilter,
+        handleApplyLuckyFilter,
+        handleApplyAdjustment,
+        handleApplyCrop,
+        handleApplyExpand,
+        handleApplyUpscale,
+        handleApplyRestore,
+        handleRemoveBackground,
+        handleReplaceBackground,
+        handleSetProductBackground,
+        handleAddProductShadow,
+        handleApplyAddProduct,
+        handleApplyCardify,
+        handleApplyText,
+        handleApplyMeme,
+        handleGenerateMemeSuggestions,
+        handleGeneratePalette,
+        handleApplyPalette,
+        handleApplyRecolor,
+        handleApplyStyleTransfer,
+        handleGenerateCaptions,
+        handleGenerateVariations,
+        handleGeneratePromptSuggestions,
+        handleGenerateCreativeText,
+        handleDetectObjects,
+        handleGenerateExpansionSuggestions
+    ]);
 
     return (
         <EditorContext.Provider value={value}>

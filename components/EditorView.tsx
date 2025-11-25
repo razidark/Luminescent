@@ -10,6 +10,7 @@ import { type HistoryItem, type Tab, type AddToHistoryOptions } from '../types';
 import { useEditor } from '../contexts/EditorContext';
 import DrawingCanvas, { type DrawingCanvasRef } from './DrawingCanvas';
 import ZoomPanWrapper, { type ZoomPanRef } from './ZoomPanWrapper';
+import CompareSlider from './CompareSlider';
 import Spinner from './Spinner';
 import EmptyStatePanel from './EmptyStatePanel';
 import FilterPanel from './FilterPanel';
@@ -99,7 +100,6 @@ const EditorView: React.FC<EditorViewProps> = (props) => {
     const [variations, setVariations] = React.useState<string[] | null>(null);
     const [isSaveSuccess, setIsSaveSuccess] = React.useState(false);
     const [eyedropperPreview, setEyedropperPreview] = React.useState<{ x: number, y: number, color: string } | null>(null);
-    const [sliderPosition, setSliderPosition] = React.useState(50);
     
     const imgRef = React.useRef<HTMLImageElement>(null);
     const canvasRef = React.useRef<DrawingCanvasRef>(null);
@@ -301,42 +301,7 @@ const EditorView: React.FC<EditorViewProps> = (props) => {
                     onMouseLeave={() => setEyedropperPreview(null)}
                 >
                     {isCompareViewActive && originalImageUrl && currentImageUrl && historyIndex > 0 ? (
-                        <div className="relative w-full h-full select-none group">
-                            <img 
-                                src={currentImageUrl} 
-                                alt="Edited" 
-                                className="absolute inset-0 w-full h-full object-contain pointer-events-none" 
-                            />
-                            <div 
-                                className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none"
-                                style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
-                            >
-                                <img 
-                                    src={originalImageUrl} 
-                                    alt="Original" 
-                                    className="absolute inset-0 w-full h-full object-contain" 
-                                />
-                            </div>
-                             <div 
-                                className="absolute top-0 bottom-0 w-0.5 bg-white cursor-ew-resize z-10 pointer-events-none shadow-[0_0_10px_rgba(0,0,0,0.5)]"
-                                style={{ left: `${sliderPosition}%` }}
-                            >
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(var(--theme-accent),0.5)] border-2 border-theme-accent text-theme-accent z-30">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                                        <path d="M18.75 12a.75.75 0 0 1-.75.75H6a.75.75 0 0 1 0-1.5h12a.75.75 0 0 1 .75.75Z" />
-                                        <path d="M12 5.25a.75.75 0 0 1 .75.75v12a.75.75 0 0 1-1.5 0v-12a.75.75 0 0 1 .75-.75Z" />
-                                    </svg>
-                                </div>
-                            </div>
-                             <input
-                                type="range"
-                                min="0"
-                                max="100"
-                                value={sliderPosition}
-                                onChange={(e) => setSliderPosition(parseFloat(e.target.value))}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-20 m-0 p-0"
-                            />
-                        </div>
+                        <CompareSlider originalImage={originalImageUrl} currentImage={currentImageUrl} />
                     ) : currentImageUrl ? (
                         <>
                             {activeTab === 'crop' ? (
