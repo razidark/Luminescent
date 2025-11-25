@@ -42,7 +42,8 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeTab, setActiveTab }) => {
   
   const handleWheel = (e: React.WheelEvent) => {
     if (scrollRef.current) {
-        scrollRef.current.scrollLeft += e.deltaY;
+        // Boost scroll speed slightly for better horizontal navigation
+        scrollRef.current.scrollLeft += e.deltaY * 1.5;
     }
   };
 

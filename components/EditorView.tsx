@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -31,7 +32,7 @@ import ColorPanel from './ColorPanel';
 import StyleTransferPanel from './StyleTransferPanel';
 import CaptionPanel from './CaptionPanel';
 import VariationsPanel from './VariationsPanel';
-import { UndoIcon, RedoIcon, EyeIcon, ZoomInIcon, ZoomOutIcon, FitToScreenIcon, SaveIcon, DownloadIcon, ResetIcon } from './icons';
+import { UndoIcon, RedoIcon, EyeIcon, ZoomInIcon, ZoomOutIcon, FitToScreenIcon, SaveIcon, DownloadIcon, ResetIcon, RotateLeftIcon, RotateRightIcon, FlipHorizontalIcon, FlipVerticalIcon, VideoIcon } from './icons';
 import { useClickOutside } from '../hooks/useClickOutside';
 import { dataURLtoFile } from '../utils/helpers';
 
@@ -90,6 +91,7 @@ const EditorView: React.FC<EditorViewProps> = (props) => {
     } = useEditor();
 
     const [isCompareViewActive, setIsCompareViewActive] = React.useState<boolean>(false);
+    const [isPeeking, setIsPeeking] = React.useState<boolean>(false); // For "Hold to compare"
     const [crop, setCrop] = React.useState<Crop>();
     const [completedCrop, setCompletedCrop] = React.useState<PixelCrop>();
     const [aspect, setAspect] = React.useState<number | undefined>();
@@ -170,13 +172,25 @@ const EditorView: React.FC<EditorViewProps> = (props) => {
         zoomPanRef.current?.reset();
     }, [activeTab]);
 
+    // Keyboard listeners for "Peek Original"
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === '\\' && !isPeeking) setIsPeeking(true);
+        };
+        const handleKeyUp = (e: KeyboardEvent) => {
+            if (e.key === '\\') setIsPeeking(false);
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keyup', handleKeyUp);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keyup', handleKeyUp);
+        };
+    }, [isPeeking]);
+
     const canUndo = historyIndex > 0;
     const canRedo = history.length - 1 > historyIndex;
     const isZoomable = activeTab !== 'crop' && !isCompareViewActive && !!currentImage;
-
-    const handleZoomToActual = () => {
-        zoomPanRef.current?.zoomToActualSize();
-    };
 
     const handleAcceptVariation = (imageDataUrl: string) => {
         const file = dataURLtoFile(imageDataUrl, 'variation.png');
@@ -190,6 +204,24 @@ const EditorView: React.FC<EditorViewProps> = (props) => {
         if (success) {
             setIsSaveSuccess(true);
             setTimeout(() => setIsSaveSuccess(false), 2000);
+        }
+    };
+
+    const handleAnimateClick = () => {
+        // Switch to video tab - the VideoView will handle the upload state 
+        // if we implement passing the current file up to App state.
+        // Since App state controls activeTab, calling setActiveTab('video') works visually.
+        // However, to pre-load the image, we'd need to pass it up.
+        // For this implementation, we just switch tabs to the tool.
+        // Ideally App.tsx would handle this transfer, but for now we just navigate.
+        // If currentImage is available, we could trigger a new "session" for video.
+        
+        if (currentImage) {
+            // We need to use the handleUploadAndNavigate prop from App if exposed, 
+            // or just setActiveTab and let user re-upload.
+            // Given the props, we only have setActiveTab.
+            // Let's just switch to the tab.
+            setActiveTab('video');
         }
     };
 
@@ -266,8 +298,8 @@ const EditorView: React.FC<EditorViewProps> = (props) => {
             return <VariationsPanel.Generated variations={variations} onAccept={handleAcceptVariation} onBack={() => setVariations(null)} originalImageUrl={currentImageUrl} />
         }
         switch(activeTab) {
-            case 'erase': return <ErasePanel prompt={prompt} setPrompt={setPrompt} brushSize={brushSize} setBrushSize={setBrushSize} onGenerate={() => handleMagicErase(maskImageUrl!)} onClear={() => canvasRef.current?.clear()} isLoading={isLoading} onGenerateSuggestions={() => handleGeneratePromptSuggestions('replace')} onAutoSelect={handleAutoSelect} />;
-            case 'retouch': return <RetouchPanel prompt={prompt} setPrompt={setPrompt} brushSize={brushSize} setBrushSize={setBrushSize} onApplyRetouch={() => handleApplyRetouch(maskImageUrl!)} onApplySelectiveAdjust={() => handleSelectiveAdjust(maskImageUrl!)} onApplyHeal={() => handleApplyHeal(maskImageUrl!)} onClear={() => canvasRef.current?.clear()} isLoading={isLoading} onAutoSelect={handleAutoSelect} />;
+            case 'erase': return <ErasePanel prompt={prompt} setPrompt={setPrompt} brushSize={brushSize} setBrushSize={setBrushSize} onGenerate={() => handleMagicErase(maskImageUrl!)} onClear={() => canvasRef.current?.clear()} onUndo={() => canvasRef.current?.undo()} isLoading={isLoading} onGenerateSuggestions={() => handleGeneratePromptSuggestions('replace')} onAutoSelect={handleAutoSelect} />;
+            case 'retouch': return <RetouchPanel prompt={prompt} setPrompt={setPrompt} brushSize={brushSize} setBrushSize={setBrushSize} onApplyRetouch={() => handleApplyRetouch(maskImageUrl!)} onApplySelectiveAdjust={() => handleSelectiveAdjust(maskImageUrl!)} onApplyHeal={() => handleApplyHeal(maskImageUrl!)} onClear={() => canvasRef.current?.clear()} onUndo={() => canvasRef.current?.undo()} isLoading={isLoading} onAutoSelect={handleAutoSelect} />;
             case 'text': return <TextPanel onApplyText={handleApplyText} isLoading={isLoading} initialText={textToApply} />;
             case 'adjust': return <AdjustmentPanel onApplyAdjustment={handleApplyAdjustment} isLoading={isLoading} />;
             case 'color': return <ColorPanel isLoading={isLoading} />;
@@ -280,7 +312,7 @@ const EditorView: React.FC<EditorViewProps> = (props) => {
             case 'restore': return <RestorePanel onApplyRestore={handleApplyRestore} isLoading={isLoading} />;
             case 'background': return <BackgroundPanel onRemoveBackground={handleRemoveBackground} onReplaceBackground={handleReplaceBackground} isLoading={isLoading} hasTransparentBackground={hasTransparentBackground} />;
             case 'product': return <ProductPanel onIsolate={handleRemoveBackground} onSetBackground={handleSetProductBackground} onAddShadow={handleAddProductShadow} isLoading={isLoading} hasTransparentBackground={hasTransparentBackground} />;
-            case 'add-product': return <AddProductPanel prompt={prompt} setPrompt={setPrompt} onGenerate={() => handleApplyAddProduct(maskImageUrl!)} isLoading={isLoading} hasMask={!!maskImageUrl} brushSize={brushSize} setBrushSize={setBrushSize} onClear={() => canvasRef.current?.clear()} onGenerateSuggestions={() => handleGeneratePromptSuggestions('add')} onAutoSelect={handleAutoSelect} />;
+            case 'add-product': return <AddProductPanel prompt={prompt} setPrompt={setPrompt} onGenerate={() => handleApplyAddProduct(maskImageUrl!)} isLoading={isLoading} hasMask={!!maskImageUrl} brushSize={brushSize} setBrushSize={setBrushSize} onClear={() => canvasRef.current?.clear()} onUndo={() => canvasRef.current?.undo()} onGenerateSuggestions={() => handleGeneratePromptSuggestions('add')} onAutoSelect={handleAutoSelect} />;
             case 'cardify': return <CardifyPanel onApplyCardify={handleApplyCardify} isLoading={isLoading} currentImage={currentImage} />;
             case 'memeify': return <MemePanel />;
             case 'captions': return <CaptionPanel onSelectSuggestion={(text) => { setTextToApply(text); setActiveTab('text'); }} isLoading={isLoading} />;
@@ -300,6 +332,19 @@ const EditorView: React.FC<EditorViewProps> = (props) => {
                     onMouseMove={handleMouseMoveForPicker}
                     onMouseLeave={() => setEyedropperPreview(null)}
                 >
+                    {isPeeking && originalImageUrl && (
+                        <div className="absolute inset-0 z-20 pointer-events-none bg-black/10">
+                            <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-full text-sm font-bold backdrop-blur-md">
+                                {t('originalImage')}
+                            </div>
+                            <img 
+                                src={originalImageUrl} 
+                                alt="Original" 
+                                className="w-full h-full object-contain"
+                            />
+                        </div>
+                    )}
+
                     {isCompareViewActive && originalImageUrl && currentImageUrl && historyIndex > 0 ? (
                         <CompareSlider originalImage={originalImageUrl} currentImage={currentImageUrl} />
                     ) : currentImageUrl ? (
@@ -343,9 +388,12 @@ const EditorView: React.FC<EditorViewProps> = (props) => {
                                 </ZoomPanWrapper>
                             )}
                             {isLoading && (
-                                <div className="absolute inset-0 bg-black/70 z-30 flex flex-col items-center justify-center gap-4 animate-fade-in backdrop-blur-sm">
+                                <div className="absolute inset-0 bg-black/70 z-30 flex flex-col items-center justify-center gap-4 animate-fade-in backdrop-blur-sm p-8 text-center">
                                     <Spinner />
-                                    <p className="text-gray-300 font-medium">{loadingMessage}</p>
+                                    <p className="text-gray-300 font-medium text-lg">{loadingMessage}</p>
+                                    <div className="w-full max-w-md bg-gray-500/30 rounded-full h-1.5 mt-4 overflow-hidden">
+                                        <div className="bg-theme-gradient h-1.5 rounded-full animate-progress-image"></div>
+                                    </div>
                                 </div>
                             )}
                         </>
@@ -367,54 +415,66 @@ const EditorView: React.FC<EditorViewProps> = (props) => {
                     </div>
                 )}
                 
-                {/* Floating HUD Bar */}
-                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 w-full max-w-3xl px-4 pointer-events-none">
-                    
-                    {/* Center Controls */}
-                    <div className="glass-panel p-2 flex items-center gap-1 pointer-events-auto mx-auto backdrop-blur-xl bg-white/70 dark:bg-black/70 border-white/20 dark:border-white/10 shadow-2xl">
-                         <button onClick={props.handleUndo} disabled={!canUndo || isLoading} data-tooltip-id="app-tooltip" data-tooltip-content={t('undo')} className="p-2.5 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                            <UndoIcon className="w-5 h-5" />
-                        </button>
-                        <button onClick={props.handleRedo} disabled={!canRedo || isLoading} data-tooltip-id="app-tooltip" data-tooltip-content={t('redo')} className="p-2.5 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                            <RedoIcon className="w-5 h-5" />
-                        </button>
+                {/* Floating HUD Bar - Redesigned with Groups */}
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center justify-center w-full max-w-4xl px-4 pointer-events-none">
+                    <div className="glass-panel p-1.5 flex items-center gap-3 pointer-events-auto mx-auto backdrop-blur-xl bg-white/80 dark:bg-black/80 border-white/20 dark:border-white/10 shadow-2xl rounded-2xl">
                         
-                        <div className="w-px h-6 bg-gray-300 dark:bg-gray-700 mx-1" />
+                        {/* History Group */}
+                        <div className="flex items-center gap-1">
+                            <button onClick={props.handleUndo} disabled={!canUndo || isLoading} data-tooltip-id="app-tooltip" data-tooltip-content={t('undo')} className="p-2.5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                <UndoIcon className="w-5 h-5" />
+                            </button>
+                            <button onClick={props.handleRedo} disabled={!canRedo || isLoading} data-tooltip-id="app-tooltip" data-tooltip-content={t('redo')} className="p-2.5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                <RedoIcon className="w-5 h-5" />
+                            </button>
+                            <button onClick={props.handleReset} disabled={historyIndex === 0 || isLoading} data-tooltip-id="app-tooltip" data-tooltip-content={t('resetAllChanges')} className="p-2.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                <ResetIcon className="w-5 h-5" />
+                            </button>
+                        </div>
 
-                        <button onClick={props.handleReset} disabled={historyIndex === 0 || isLoading} data-tooltip-id="app-tooltip" data-tooltip-content={t('resetAllChanges')} className="p-2.5 hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                            <ResetIcon className="w-5 h-5" />
-                        </button>
+                        <div className="w-px h-8 bg-gray-300 dark:bg-gray-700/50" />
 
-                        <div className="w-px h-6 bg-gray-300 dark:bg-gray-700 mx-1" />
+                        {/* View Group */}
+                        <div className="flex items-center gap-1">
+                            <button onClick={() => setIsCompareViewActive(prev => !prev)} disabled={historyIndex <= 0 || isLoading} data-tooltip-id="app-tooltip" data-tooltip-content={t('compareWithOriginal')} className={`p-2.5 rounded-xl transition-all duration-200 ${isCompareViewActive ? 'bg-theme-gradient text-white shadow-lg shadow-theme-accent/30' : 'hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300'} disabled:opacity-40 disabled:cursor-not-allowed`}>
+                                <EyeIcon className="w-5 h-5" />
+                            </button>
+                            {isZoomable && (
+                                <>
+                                    <button onClick={() => zoomPanRef.current?.reset()} data-tooltip-id="app-tooltip" data-tooltip-content={t('fitToScreen')} className="p-2.5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 rounded-xl transition-colors"><FitToScreenIcon className="w-5 h-5" /></button>
+                                </>
+                            )}
+                        </div>
 
-                        <button
-                            onClick={() => setIsCompareViewActive(prev => !prev)}
-                            disabled={historyIndex <= 0 || isLoading} 
-                            data-tooltip-id="app-tooltip"
-                            data-tooltip-content={t('compareWithOriginal')} 
-                            className={`p-2.5 rounded-lg transition-all duration-200 ${isCompareViewActive ? 'bg-theme-gradient text-white shadow-lg shadow-theme-accent/30 scale-110' : 'hover:bg-gray-100 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300'} disabled:opacity-40 disabled:cursor-not-allowed`}>
-                            <EyeIcon className="w-5 h-5" />
-                        </button>
-
+                        {/* Transform Group (Only if Zoomable) */}
                         {isZoomable && (
                             <>
-                                <div className="w-px h-6 bg-gray-300 dark:bg-gray-700 mx-1" />
-                                <button onClick={() => zoomPanRef.current?.zoomOut()} className="p-2.5 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"><ZoomOutIcon className="w-4 h-4" /></button>
-                                <button onClick={() => zoomPanRef.current?.reset()} className="p-2.5 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"><FitToScreenIcon className="w-4 h-4" /></button>
-                                <button onClick={() => zoomPanRef.current?.zoomIn()} className="p-2.5 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"><ZoomInIcon className="w-4 h-4" /></button>
+                                <div className="w-px h-8 bg-gray-300 dark:bg-gray-700/50" />
+                                <div className="flex items-center gap-1">
+                                    <button onClick={() => zoomPanRef.current?.rotateLeft()} data-tooltip-id="app-tooltip" data-tooltip-content="Rotate Left" className="p-2.5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 rounded-xl transition-colors"><RotateLeftIcon className="w-5 h-5" /></button>
+                                    <button onClick={() => zoomPanRef.current?.rotateRight()} data-tooltip-id="app-tooltip" data-tooltip-content="Rotate Right" className="p-2.5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 rounded-xl transition-colors"><RotateRightIcon className="w-5 h-5" /></button>
+                                    <button onClick={() => zoomPanRef.current?.flipHorizontal()} data-tooltip-id="app-tooltip" data-tooltip-content="Flip Horizontal" className="p-2.5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 rounded-xl transition-colors"><FlipHorizontalIcon className="w-5 h-5" /></button>
+                                    <button onClick={() => zoomPanRef.current?.flipVertical()} data-tooltip-id="app-tooltip" data-tooltip-content="Flip Vertical" className="p-2.5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 rounded-xl transition-colors"><FlipVerticalIcon className="w-5 h-5" /></button>
+                                </div>
                             </>
                         )}
-                    </div>
 
-                     {/* Right Actions - Download */}
-                     <div ref={saveButtonRef} className="glass-panel p-1 flex items-center pointer-events-auto ml-auto backdrop-blur-xl bg-white/70 dark:bg-black/70 border-white/20 dark:border-white/10 shadow-2xl">
-                        <button onClick={() => props.handleDownload()} disabled={isLoading} data-tooltip-id="app-tooltip" data-tooltip-content={t('downloadImage')} className="p-2.5 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 rounded-lg transition-colors disabled:opacity-40">
-                             <DownloadIcon className="w-5 h-5" />
-                        </button>
-                        <div className="w-px h-6 bg-gray-300 dark:bg-gray-700 mx-1" />
-                        <button onClick={() => setIsSaveMenuOpen(!isSaveMenuOpen)} disabled={isLoading || isSavingToCreations} className={`p-2.5 rounded-lg transition-colors disabled:opacity-40 ${isSaveSuccess ? 'text-green-500 bg-green-100 dark:bg-green-900/30' : 'hover:bg-gray-100 dark:hover:bg-white/10 text-theme-accent'}`}>
-                            {isSavingToCreations ? <Spinner /> : <SaveIcon className="w-5 h-5" />}
-                        </button>
+                        <div className="w-px h-8 bg-gray-300 dark:bg-gray-700/50" />
+
+                        {/* Actions Group */}
+                        <div className="flex items-center gap-1" ref={saveButtonRef}>
+                             <button onClick={handleAnimateClick} disabled={isLoading} data-tooltip-id="app-tooltip" data-tooltip-content={t('generateVideo')} className="p-2.5 hover:bg-gray-200 dark:hover:bg-white/10 text-theme-accent rounded-xl transition-colors disabled:opacity-40">
+                                <VideoIcon className="w-5 h-5" />
+                            </button>
+                            <button onClick={() => props.handleDownload()} disabled={isLoading} data-tooltip-id="app-tooltip" data-tooltip-content={t('downloadImage')} className="p-2.5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 rounded-xl transition-colors disabled:opacity-40">
+                                <DownloadIcon className="w-5 h-5" />
+                            </button>
+                            <button onClick={() => setIsSaveMenuOpen(!isSaveMenuOpen)} disabled={isLoading || isSavingToCreations} className={`p-2.5 rounded-xl transition-colors disabled:opacity-40 ${isSaveSuccess ? 'text-green-500 bg-green-100 dark:bg-green-900/30' : 'hover:bg-gray-200 dark:hover:bg-white/10 text-theme-accent'}`}>
+                                {isSavingToCreations ? <Spinner /> : <SaveIcon className="w-5 h-5" />}
+                            </button>
+                        </div>
+
+                        {/* Dropdown Menu for Save */}
                         {isSaveMenuOpen && (
                             <div className="absolute bottom-full right-0 mb-2 w-48 glass-panel p-1 z-50 animate-fade-in backdrop-blur-xl bg-white/90 dark:bg-black/90 border-white/20 dark:border-white/10">
                                 <button
@@ -427,7 +487,6 @@ const EditorView: React.FC<EditorViewProps> = (props) => {
                             </div>
                         )}
                     </div>
-
                 </div>
             </div>
 

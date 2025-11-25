@@ -11,6 +11,10 @@ export interface ZoomPanRef {
   zoomOut: () => void;
   reset: () => void;
   zoomToActualSize: () => void;
+  rotateLeft: () => void;
+  rotateRight: () => void;
+  flipHorizontal: () => void;
+  flipVertical: () => void;
 }
 
 interface ZoomPanWrapperProps {
@@ -40,7 +44,7 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
   imageUrl,
 }, ref) => {
   // Use refs for state to avoid re-renders during gestures
-  const transform = useRef({ x: 0, y: 0, scale: 1 });
+  const transform = useRef({ x: 0, y: 0, scale: 1, rotation: 0, flipX: false, flipY: false });
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   
@@ -54,10 +58,10 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
   // Helper to apply transforms directly to DOM
   const updateTransform = useCallback((animate = false) => {
     if (!contentRef.current) return;
-    const { x, y, scale } = transform.current;
+    const { x, y, scale, rotation, flipX, flipY } = transform.current;
     
     contentRef.current.style.transition = animate ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none';
-    contentRef.current.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+    contentRef.current.style.transform = `translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${scale}) scaleX(${flipX ? -1 : 1}) scaleY(${flipY ? -1 : 1})`;
     
     // Update cursor based on state
     if (containerRef.current) {
@@ -85,7 +89,7 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
     const newX = mouseRelX - (pointOnContentX * clampedScale);
     const newY = mouseRelY - (pointOnContentY * clampedScale);
 
-    transform.current = { x: newX, y: newY, scale: clampedScale };
+    transform.current = { ...transform.current, x: newX, y: newY, scale: clampedScale };
     updateTransform(false);
   };
 
@@ -104,11 +108,22 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
     const imageWidth = image.naturalWidth;
     const imageHeight = image.naturalHeight;
     
-    const scaleX = containerWidth / imageWidth;
-    const scaleY = containerHeight / imageHeight;
+    // If rotated 90 or 270, swap width/height for fitting calculation
+    const rotation = Math.abs(transform.current.rotation % 360);
+    const isVertical = rotation === 90 || rotation === 270;
+    
+    const effectiveImgWidth = isVertical ? imageHeight : imageWidth;
+    const effectiveImgHeight = isVertical ? imageWidth : imageHeight;
+
+    const scaleX = containerWidth / effectiveImgWidth;
+    const scaleY = containerHeight / effectiveImgHeight;
     const newScale = Math.min(scaleX, scaleY, 1); 
 
-    transform.current = { x: 0, y: 0, scale: newScale };
+    // Reset position to center
+    const offsetX = (container.clientWidth - (imageWidth * newScale)) / 2;
+    const offsetY = (container.clientHeight - (imageHeight * newScale)) / 2;
+
+    transform.current = { ...transform.current, x: offsetX, y: offsetY, scale: newScale };
     updateTransform(true);
   }, [imageRef, updateTransform]);
 
@@ -119,20 +134,15 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
         const centerX = left + width / 2;
         const centerY = top + height / 2;
         
-        // Calculate center point on image to zoom towards center
-        const rect = containerRef.current.getBoundingClientRect();
-        const mouseRelX = centerX - rect.left;
-        const mouseRelY = centerY - rect.top;
-        
         const currentScale = transform.current.scale;
-        const pointOnContentX = (mouseRelX - transform.current.x) / currentScale;
-        const pointOnContentY = (mouseRelY - transform.current.y) / currentScale;
+        const pointOnContentX = (centerX - left - transform.current.x) / currentScale;
+        const pointOnContentY = (centerY - top - transform.current.y) / currentScale;
         
         const targetScale = 1;
-        const newX = mouseRelX - (pointOnContentX * targetScale);
-        const newY = mouseRelY - (pointOnContentY * targetScale);
+        const newX = (centerX - left) - (pointOnContentX * targetScale);
+        const newY = (centerY - top) - (pointOnContentY * targetScale);
 
-        transform.current = { x: newX, y: newY, scale: targetScale };
+        transform.current = { ...transform.current, x: newX, y: newY, scale: targetScale };
         updateTransform(true);
   }, [updateTransform, imageRef]);
 
@@ -141,6 +151,8 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
     if (!image) return;
 
     const handleLoad = () => {
+        // Reset rotation/flips on new image load
+        transform.current = { x: 0, y: 0, scale: 1, rotation: 0, flipX: false, flipY: false };
         fitToScreen();
     };
     
@@ -184,11 +196,10 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
   }, [updateTransform]);
   
   const handleWheel = (e: WheelEvent<HTMLDivElement>) => {
+    // Mouse wheel zoom disabled by request.
+    // We only prevent default on zoom gestures (Ctrl+Wheel) to stop browser page zoom.
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
-      const delta = -e.deltaY;
-      const factor = delta > 0 ? 1.1 : 0.9;
-      updateZoom(transform.current.scale * factor, e.clientX, e.clientY);
     }
   };
   
@@ -306,7 +317,23 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
         updateZoom(transform.current.scale - zoomStep, left + width / 2, top + height / 2);
     },
     reset: fitToScreen,
-    zoomToActualSize: zoomToActualSize
+    zoomToActualSize: zoomToActualSize,
+    rotateLeft: () => {
+        transform.current.rotation -= 90;
+        updateTransform(true);
+    },
+    rotateRight: () => {
+        transform.current.rotation += 90;
+        updateTransform(true);
+    },
+    flipHorizontal: () => {
+        transform.current.flipX = !transform.current.flipX;
+        updateTransform(true);
+    },
+    flipVertical: () => {
+        transform.current.flipY = !transform.current.flipY;
+        updateTransform(true);
+    }
   }));
 
   return (

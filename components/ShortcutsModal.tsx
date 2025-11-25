@@ -44,6 +44,12 @@ const ShortcutsModal: React.FC<ShortcutsModalProps> = ({ isOpen, onClose }) => {
       keys: ['Ctrl', 'Y']
     },
     {
+      Icon: EyeIcon,
+      titleKey: 'shortcutsPeek',
+      descriptionKey: 'shortcutsPeekDesc',
+      keys: ['\\']
+    },
+    {
       Icon: HandIcon,
       titleKey: 'shortcutsPan',
       descriptionKey: 'shortcutsPanDesc',

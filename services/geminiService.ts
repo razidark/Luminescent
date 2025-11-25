@@ -423,27 +423,42 @@ Output: Return ONLY the final composited image. Do not return text.`;
 export const generateImages = async (
     prompt: string,
     numImages: number,
-    aspectRatio: '1:1' | '4:3' | '3:4' | '16:9' | '9:16'
+    aspectRatio: '1:1' | '4:3' | '3:4' | '16:9' | '9:16',
+    quality: 'standard' | 'pro' = 'standard',
+    imageSize: '1K' | '2K' | '4K' = '1K'
 ): Promise<string[]> => {
-    // We don't wrap the entire batch in withRetry because we want partial success to be handled by Promise.allSettled.
-    // Individual requests inside generateOne already have retries via handleApiResponse if we wrapped them, 
-    // but handleApiResponse is synchronous error checking. 
-    // We will implement retry logic at the individual generation level if needed, but withRetry wrapper is simpler.
-    
-    console.log(`Starting batch image generation with prompt: ${prompt} (gemini-2.5-flash-image)`);
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     
+    const model = quality === 'pro' ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
+    console.log(`Starting batch image generation with prompt: ${prompt} (${model})`);
+
     const generateOne = async (): Promise<string> => {
         return withRetry(async () => {
-            const ratioPrompt = aspectRatio ? ` Aspect ratio: ${aspectRatio}.` : '';
-            const fullPrompt = `${prompt}${ratioPrompt}`;
+            let config: any = {
+                responseModalities: [Modality.IMAGE],
+            };
+
+            // For Gemini 3 Pro Image, we use imageConfig for size and AR
+            if (quality === 'pro') {
+                config.imageConfig = {
+                    aspectRatio: aspectRatio,
+                    imageSize: imageSize
+                };
+            } else {
+                // For Flash Image, use imageConfig for aspect ratio
+                config.imageConfig = {
+                    aspectRatio: aspectRatio
+                };
+            }
+
+            // For Flash, ensure prompt includes AR hint just in case, though config should handle it.
+            // For Pro, do NOT modify prompt with AR as config handles it.
+            const fullPrompt = prompt;
             
             const response: GenerateContentResponse = await ai.models.generateContent({
-                model: 'gemini-2.5-flash-image',
+                model: model,
                 contents: { parts: [{ text: fullPrompt }] },
-                config: {
-                    responseModalities: [Modality.IMAGE],
-                },
+                config: config,
             });
             
             return handleApiResponse(response, 'image generation');
@@ -1275,12 +1290,12 @@ export const transcribeAudio = async (
     audioFile: File
 ): Promise<string> => {
     return withRetry(async () => {
-        console.log('Transcribing audio with Flash Lite...');
+        console.log('Transcribing audio with Gemini 2.5 Flash...');
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
         const { inlineData } = await fileToGenerativePart(audioFile);
 
         const response = await ai.models.generateContent({
-            model: 'gemini-flash-lite-latest',
+            model: 'gemini-2.5-flash',
             contents: { parts: [inlineData, { text: "Transcribe this audio file. Output only the text." }] },
             config: { safetySettings }
         });
@@ -1344,12 +1359,7 @@ export const chatWithGemini = async (
         // Construct history for API
         const contents: Content[] = await Promise.all(history.map(async msg => {
             const parts: Part[] = [{ text: msg.text }];
-            if (msg.image) {
-                // Reconstruct inline data if we stored base64
-                // For simple chat history we might skip sending old images to save tokens, 
-                // but for "context" we ideally keep them. 
-                // Simplified: Only sending text history, current image.
-            }
+            // Simplified: sending text history
             return { role: msg.role, parts };
         }));
 
@@ -1360,6 +1370,7 @@ export const chatWithGemini = async (
             currentParts.unshift(inlineData);
         }
 
+        // Use Gemini 3 Pro for reasoning, Flash for fast chat
         const model = useReasoning ? 'gemini-3-pro-preview' : 'gemini-2.5-flash';
         const tools = [];
         
@@ -1374,11 +1385,6 @@ export const chatWithGemini = async (
             config.thinkingConfig = { thinkingBudget: 1024 }; // Enable thinking
         }
 
-        // Note: ChatSession from SDK manages history, but for stateless functional style we can use generateContent with full context
-        // or create a transient ChatSession. Using generateContent for single-turn + context control is often simpler for custom UIs.
-        // However, for proper multi-turn with tools, ChatSession is better.
-        
-        // Let's use the chat helper but we need to initialize it with history.
         const chat = ai.chats.create({
             model,
             history: contents,
@@ -1393,4 +1399,61 @@ export const chatWithGemini = async (
             groundingMetadata: result.candidates?.[0]?.groundingMetadata
         };
     });
+};
+
+// New Streaming Chat Function
+export const chatWithGeminiStream = async function* (
+    history: ChatMessage[],
+    newMessage: string,
+    image?: File,
+    useReasoning: boolean = false,
+    useGrounding: boolean = true
+) {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+    
+    const contents: Content[] = await Promise.all(history.map(async msg => {
+        return { role: msg.role, parts: [{ text: msg.text }] };
+    }));
+
+    const currentParts: Part[] = [{ text: newMessage }];
+    
+    if (image) {
+        const { inlineData } = await fileToGenerativePart(image);
+        currentParts.unshift(inlineData);
+    }
+
+    const model = useReasoning ? 'gemini-3-pro-preview' : 'gemini-2.5-flash';
+    const tools = [];
+    
+    if (useGrounding) {
+        tools.push({ googleSearch: {} });
+        tools.push({ googleMaps: {} });
+    }
+
+    const config: any = { 
+        safetySettings, 
+        tools,
+        // System Instructions to encourage structured data usage when helpful
+        systemInstruction: "You are Luminescent AI, a creative and helpful assistant. Be concise. If you need to present comparisons or structured data, please use Markdown tables."
+    };
+    
+    if (useReasoning) {
+        config.thinkingConfig = { thinkingBudget: 1024 };
+    }
+
+    const chat = ai.chats.create({
+        model,
+        history: contents,
+        config
+    });
+
+    const resultStream = await chat.sendMessageStream({ message: currentParts });
+
+    for await (const chunk of resultStream) {
+        // Yield an object to return both text and potential metadata updates
+        yield {
+            text: chunk.text,
+            groundingMetadata: chunk.candidates?.[0]?.groundingMetadata
+        };
+    }
 };

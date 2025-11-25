@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -32,6 +33,25 @@ import Toolbar from './components/Toolbar';
 import { type Tab, AddToHistoryOptions } from './types';
 import { useHistoryState } from './hooks/useHistoryState';
 import { EditorProvider } from './contexts/EditorContext';
+
+// Helper to check for paid API key for advanced models
+const ensurePaidKey = async () => {
+    if (typeof (window as any).aistudio !== 'undefined' && (window as any).aistudio.hasSelectedApiKey) {
+        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+            try {
+                await (window as any).aistudio.openSelectKey();
+                // Race condition handling: Assume success if dialog opens and user likely completes it
+                return true; 
+            } catch (e) {
+                console.error("Failed to open key selection dialog", e);
+                return false;
+            }
+        }
+        return true;
+    }
+    return true; // Assume environment variable is set if not in the specific hosting environment
+};
 
 const App: React.FC = () => {
   const { t } = useLanguage();
@@ -140,7 +160,11 @@ const App: React.FC = () => {
     console.error(err);
   }, [t]);
   
-  const handleGenerateImages = React.useCallback(async (genPrompt: string, numImages: number, aspectRatio: '1:1' | '4:3' | '3:4' | '16:9' | '9:16') => {
+  const handleGenerateImages = React.useCallback(async (genPrompt: string, numImages: number, aspectRatio: '1:1' | '4:3' | '3:4' | '16:9' | '9:16', quality: 'standard' | 'pro', imageSize: '1K' | '2K' | '4K') => {
+    if (quality === 'pro') {
+        await ensurePaidKey();
+    }
+    
     setIsGenerating(true);
     setError(null);
     setGeneratedImages([]);
@@ -148,7 +172,7 @@ const App: React.FC = () => {
     setGeneratedImagesPrompt(genPrompt);
     setLoadingMessageIndex(0);
     try {
-        const images = await geminiService.generateImages(genPrompt, numImages, aspectRatio);
+        const images = await geminiService.generateImages(genPrompt, numImages, aspectRatio, quality, imageSize);
         setGeneratedImages(images);
     } catch (err) {
         handleApiError(err);
@@ -158,6 +182,8 @@ const App: React.FC = () => {
   }, [handleApiError]);
   
   const handleGenerateVideo = React.useCallback(async (genPrompt: string, image?: File) => {
+    await ensurePaidKey();
+    
     setIsGenerating(true);
     setError(null);
     setGeneratedVideoUrl(null);

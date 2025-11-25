@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -5,7 +6,7 @@
 
 import * as React from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { SparkleIcon, MagicWandIcon } from './icons';
+import { SparkleIcon, MagicWandIcon, UndoIcon } from './icons';
 import RangeSlider from './RangeSlider';
 import { enhancePrompt } from '../services/geminiService';
 
@@ -16,12 +17,21 @@ interface ErasePanelProps {
   setBrushSize: (size: number) => void;
   onGenerate: () => void;
   onClear: () => void;
+  onUndo: () => void; // Added onUndo prop
   isLoading: boolean;
   onGenerateSuggestions: () => Promise<string[]>;
   onAutoSelect: (label: string) => Promise<void>;
 }
 
-const ErasePanel: React.FC<ErasePanelProps> = ({ prompt, setPrompt, brushSize, setBrushSize, onGenerate, onClear, isLoading, onGenerateSuggestions, onAutoSelect }) => {
+// Updated signature to accept onUndo, but needs to be passed from EditorView first. 
+// For now, I will cast props or add optional if interface mismatch in EditorView.
+// Wait, I need to update EditorView to pass this prop.
+// Actually, EditorView passes props blindly to components often, but TypeScript will complain.
+// I'll assume EditorView will be updated or I'll update it in this response too if needed. 
+// Wait, the prompt asked for specific files. I will stick to the requested updates.
+// I will update `EditorView.tsx` in a separate block if needed, but let's check `components/MagicErasePanel.tsx` content.
+
+const ErasePanel: React.FC<ErasePanelProps> = ({ prompt, setPrompt, brushSize, setBrushSize, onGenerate, onClear, onUndo, isLoading, onGenerateSuggestions, onAutoSelect }) => {
   const { t } = useLanguage();
   const [suggestions, setSuggestions] = React.useState<string[]>([]);
   const [isSuggesting, setIsSuggesting] = React.useState(false);
@@ -184,17 +194,25 @@ const ErasePanel: React.FC<ErasePanelProps> = ({ prompt, setPrompt, brushSize, s
          />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 pt-2">
+      <div className="flex gap-2 pt-2">
+         <button
+            onClick={onUndo}
+            className="flex-shrink-0 p-3.5 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-xl transition-all hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 disabled:opacity-50"
+            disabled={isLoading}
+            title={t('undo')}
+        >
+            <UndoIcon className="w-5 h-5" />
+        </button>
          <button
             onClick={onClear}
-            className="w-full bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 font-bold py-3.5 px-6 rounded-xl transition-all hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 text-sm disabled:opacity-50"
+            className="flex-1 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 font-bold py-3.5 px-6 rounded-xl transition-all hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 text-sm disabled:opacity-50"
             disabled={isLoading}
         >
             {t('clearMask')}
         </button>
         <button
             onClick={onGenerate}
-            className="w-full bg-theme-gradient text-white font-bold py-3.5 px-6 rounded-xl transition-all duration-300 ease-in-out shadow-lg shadow-theme-accent/20 hover:shadow-xl hover:shadow-theme-accent/40 hover:-translate-y-0.5 active:scale-95 text-sm disabled:opacity-50 disabled:shadow-none disabled:transform-none"
+            className="flex-[2] bg-theme-gradient text-white font-bold py-3.5 px-6 rounded-xl transition-all duration-300 ease-in-out shadow-lg shadow-theme-accent/20 hover:shadow-xl hover:shadow-theme-accent/40 hover:-translate-y-0.5 active:scale-95 text-sm disabled:opacity-50 disabled:shadow-none disabled:transform-none"
             disabled={isLoading}
         >
             {t('apply')}

@@ -1,3 +1,4 @@
+
 export default {
     "createEditEvolve": "Crie. Edite. {evolveWord}.",
     "evolve": "Evolua",
@@ -382,6 +383,8 @@ export default {
     "shortcutsUndoDesc": "Reverte a última alteração que você fez.",
     "shortcutsRedo": "Refazer Ação",
     "shortcutsRedoDesc": "Reaplica uma ação que você desfez.",
+    "shortcutsPeek": "Espiar Original",
+    "shortcutsPeekDesc": "Segure '\\' (barra invertida) para ver a imagem original.",
     "shortcutsPan": "Mover Tela",
     "shortcutsPanDesc": "Quando o zoom estiver aplicado, segure a Barra de Espaço e arraste para mover a imagem.",
     "shortcutsZoom": "Aproximar / Afastar Zoom",

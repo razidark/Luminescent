@@ -8,6 +8,7 @@ import * as React from 'react';
 
 export interface DrawingCanvasRef {
   clear: () => void;
+  undo: () => void;
   getMaskAsFile: () => File | null;
   drawRects: (rects: Array<{ ymin: number; xmin: number; ymax: number; xmax: number }>) => void;
 }
@@ -19,11 +20,20 @@ interface DrawingCanvasProps {
   onDrawEnd: (dataUrl: string | null) => void;
 }
 
+type Point = { x: number, y: number };
+type DrawAction = 
+  | { type: 'stroke', points: Point[], size: number, color: string }
+  | { type: 'rects', rects: Array<{ ymin: number; xmin: number; ymax: number; xmax: number }> };
+
 const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ imageElement, brushSize, brushColor, onDrawEnd }, ref) => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const cursorRef = React.useRef<HTMLDivElement>(null);
   const isDrawing = React.useRef(false);
   const [size, setSize] = React.useState({ width: 0, height: 0 });
+  
+  // History State
+  const history = React.useRef<DrawAction[]>([]);
+  const currentStroke = React.useRef<Point[]>([]);
   
   // Used to toggle cursor visibility
   const [isHovering, setIsHovering] = React.useState(false);
@@ -32,6 +42,10 @@ const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ 
     if (imageElement) {
       const { width, height } = imageElement.getBoundingClientRect();
       setSize({ width, height });
+      // We need to redraw history when size changes to keep relative positions if we were storing relative coords,
+      // but here we rely on the canvas scaling. For robust resizing, we'd clear and redraw.
+      // For now, simple resize might clear canvas, so we should redraw history.
+      requestAnimationFrame(redraw);
     }
   }, [imageElement]);
 
@@ -53,8 +67,6 @@ const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ 
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
     
-    // The coordinates need to be scaled by the ratio of the element's display size
-    // to its actual canvas buffer size, to account for high-DPI displays.
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     
@@ -66,11 +78,21 @@ const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ 
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
     isDrawing.current = true;
-    const { x, y } = getCoords(e);
+    const coords = getCoords(e);
+    currentStroke.current = [coords];
+    
     const context = canvasRef.current?.getContext('2d');
     if (!context) return;
+    
     context.beginPath();
-    context.moveTo(x, y);
+    context.moveTo(coords.x, coords.y);
+    // Draw a single dot in case they just click
+    context.fillStyle = brushColor;
+    context.beginPath();
+    context.arc(coords.x, coords.y, brushSize / 2, 0, Math.PI * 2);
+    context.fill();
+    context.beginPath(); // Reset for path
+    context.moveTo(coords.x, coords.y);
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -81,10 +103,13 @@ const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ 
     }
 
     if (!isDrawing.current) return;
-    const { x, y } = getCoords(e);
+    const coords = getCoords(e);
+    currentStroke.current.push(coords);
+    
     const context = canvasRef.current?.getContext('2d');
     if (!context) return;
-    context.lineTo(x, y);
+    
+    context.lineTo(coords.x, coords.y);
     context.strokeStyle = brushColor;
     context.lineWidth = brushSize;
     context.lineCap = 'round';
@@ -92,9 +117,59 @@ const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ 
     context.stroke();
   };
 
+  const redraw = () => {
+      const canvas = canvasRef.current;
+      const context = canvas?.getContext('2d');
+      if (!canvas || !context) return;
+
+      context.clearRect(0, 0, canvas.width, canvas.height);
+
+      history.current.forEach(action => {
+          if (action.type === 'stroke') {
+              if (action.points.length === 0) return;
+              
+              // Handle single point (dot)
+              if (action.points.length === 1) {
+                  context.fillStyle = action.color;
+                  context.beginPath();
+                  context.arc(action.points[0].x, action.points[0].y, action.size / 2, 0, Math.PI * 2);
+                  context.fill();
+                  return;
+              }
+
+              context.beginPath();
+              context.moveTo(action.points[0].x, action.points[0].y);
+              for (let i = 1; i < action.points.length; i++) {
+                  context.lineTo(action.points[i].x, action.points[i].y);
+              }
+              context.strokeStyle = action.color;
+              context.lineWidth = action.size;
+              context.lineCap = 'round';
+              context.lineJoin = 'round';
+              context.stroke();
+          } else if (action.type === 'rects') {
+              context.fillStyle = brushColor; // Use current brush color for rects consistency
+              action.rects.forEach(rect => {
+                  const x = (rect.xmin / 1000) * canvas.width;
+                  const y = (rect.ymin / 1000) * canvas.height;
+                  const w = ((rect.xmax - rect.xmin) / 1000) * canvas.width;
+                  const h = ((rect.ymax - rect.ymin) / 1000) * canvas.height;
+                  context.fillRect(x, y, w, h);
+              });
+          }
+      });
+      exportMask();
+  };
+
   const exportMask = () => {
     const canvas = canvasRef.current;
     if (canvas) {
+      // If history is empty, clear mask
+      if (history.current.length === 0) {
+          onDrawEnd(null);
+          return;
+      }
+
       const tempCanvas = document.createElement('canvas');
       const tempCtx = tempCanvas.getContext('2d');
       if (!tempCtx) {
@@ -112,16 +187,23 @@ const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ 
 
       const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
       const data = imageData.data;
+      let hasPixels = false;
       for (let i = 0; i < data.length; i += 4) {
         if (data[i + 3] > 0) { // If pixel is not transparent
           data[i] = 0;
           data[i + 1] = 0;
           data[i + 2] = 0;
           data[i + 3] = 255;
+          hasPixels = true;
         }
       }
-      tempCtx.putImageData(imageData, 0, 0);
+      
+      if (!hasPixels) {
+          onDrawEnd(null);
+          return;
+      }
 
+      tempCtx.putImageData(imageData, 0, 0);
       onDrawEnd(tempCanvas.toDataURL('image/png'));
     }
   };
@@ -129,6 +211,16 @@ const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ 
   const stopDrawing = () => {
     if (!isDrawing.current) return;
     isDrawing.current = false;
+    
+    if (currentStroke.current.length > 0) {
+        history.current.push({
+            type: 'stroke',
+            points: currentStroke.current,
+            size: brushSize,
+            color: brushColor
+        });
+    }
+    
     const context = canvasRef.current?.getContext('2d');
     if (context) {
         context.closePath();
@@ -138,30 +230,19 @@ const DrawingCanvas = React.forwardRef<DrawingCanvasRef, DrawingCanvasProps>(({ 
 
   React.useImperativeHandle(ref, () => ({
     clear() {
-      const canvas = canvasRef.current;
-      const context = canvas?.getContext('2d');
-      if (canvas && context) {
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        onDrawEnd(null);
-      }
+      history.current = [];
+      redraw();
     },
-    getMaskAsFile: () => null, // Deprecated, handled by onDrawEnd
+    undo() {
+        if (history.current.length > 0) {
+            history.current.pop();
+            redraw();
+        }
+    },
+    getMaskAsFile: () => null, 
     drawRects(rects) {
-      const canvas = canvasRef.current;
-      const context = canvas?.getContext('2d');
-      if (canvas && context) {
-        context.fillStyle = brushColor;
-        rects.forEach(rect => {
-          // Coordinates are 0-1000 relative to original image size
-          // We need to map them to the current CANVAS size
-          const x = (rect.xmin / 1000) * canvas.width;
-          const y = (rect.ymin / 1000) * canvas.height;
-          const w = ((rect.xmax - rect.xmin) / 1000) * canvas.width;
-          const h = ((rect.ymax - rect.ymin) / 1000) * canvas.height;
-          context.fillRect(x, y, w, h);
-        });
-        exportMask();
-      }
+      history.current.push({ type: 'rects', rects });
+      redraw();
     }
   }));
 

@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -5,7 +6,7 @@
 
 import * as React from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { SparkleIcon } from './icons';
+import { SparkleIcon, UndoIcon } from './icons';
 import RangeSlider from './RangeSlider';
 
 interface RetouchPanelProps {
@@ -17,13 +18,14 @@ interface RetouchPanelProps {
   onApplySelectiveAdjust: () => void;
   onApplyHeal: () => void;
   onClear: () => void;
+  onUndo: () => void;
   isLoading: boolean;
   onAutoSelect: (label: string) => Promise<void>;
 }
 
 type BrushMode = 'retouch' | 'adjust' | 'heal';
 
-const RetouchPanel: React.FC<RetouchPanelProps> = ({ prompt, setPrompt, brushSize, setBrushSize, onApplyRetouch, onApplySelectiveAdjust, onApplyHeal, onClear, isLoading, onAutoSelect }) => {
+const RetouchPanel: React.FC<RetouchPanelProps> = ({ prompt, setPrompt, brushSize, setBrushSize, onApplyRetouch, onApplySelectiveAdjust, onApplyHeal, onClear, onUndo, isLoading, onAutoSelect }) => {
   const { t } = useLanguage();
   const [activePresetId, setActivePresetId] = React.useState<string>('auto');
   const [mode, setMode] = React.useState<BrushMode>('retouch');
@@ -173,17 +175,25 @@ const RetouchPanel: React.FC<RetouchPanelProps> = ({ prompt, setPrompt, brushSiz
          />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 pt-2">
+      <div className="flex gap-2 pt-2">
+         <button
+            onClick={onUndo}
+            className="flex-shrink-0 p-3.5 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-xl transition-all hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 disabled:opacity-50"
+            disabled={isLoading}
+            title={t('undo')}
+        >
+            <UndoIcon className="w-5 h-5" />
+        </button>
          <button
             onClick={onClear}
-            className="w-full bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 font-bold py-3.5 px-6 rounded-xl transition-all hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 text-sm disabled:opacity-50"
+            className="flex-1 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 font-bold py-3.5 px-6 rounded-xl transition-all hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 text-sm disabled:opacity-50"
             disabled={isLoading}
         >
             {t('clearMask')}
         </button>
         <button
             onClick={handleGenerate}
-            className="w-full bg-theme-gradient text-white font-bold py-3.5 px-6 rounded-xl transition-all duration-300 ease-in-out shadow-lg shadow-theme-accent/20 hover:shadow-xl hover:shadow-theme-accent/40 hover:-translate-y-0.5 active:scale-95 text-sm disabled:opacity-50 disabled:shadow-none disabled:transform-none"
+            className="flex-[2] bg-theme-gradient text-white font-bold py-3.5 px-6 rounded-xl transition-all duration-300 ease-in-out shadow-lg shadow-theme-accent/20 hover:shadow-xl hover:shadow-theme-accent/40 hover:-translate-y-0.5 active:scale-95 text-sm disabled:opacity-50 disabled:shadow-none disabled:transform-none"
             disabled={isLoading || !canApply}
         >
           <div className="flex items-center justify-center gap-2">

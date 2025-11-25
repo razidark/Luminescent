@@ -4,22 +4,26 @@
 */
 
 import * as React from 'react';
-import { GenerateIcon, MagicWandIcon } from './icons';
+import { GenerateIcon, MagicWandIcon, SparkleIcon } from './icons';
 import { useLanguage } from '../contexts/LanguageContext';
 import { enhancePrompt } from '../services/geminiService';
 
 interface GeneratePanelProps {
-  onGenerate: (prompt: string, numImages: number, aspectRatio: '1:1' | '4:3' | '3:4' | '16:9' | '9:16') => void;
+  onGenerate: (prompt: string, numImages: number, aspectRatio: '1:1' | '4:3' | '3:4' | '16:9' | '9:16', quality: 'standard' | 'pro', imageSize: '1K' | '2K' | '4K') => void;
   isLoading: boolean;
 }
 
 type AspectRatio = '1:1' | '4:3' | '3:4' | '16:9' | '9:16';
+type Quality = 'standard' | 'pro';
+type ImageSize = '1K' | '2K' | '4K';
 
 const GeneratePanel: React.FC<GeneratePanelProps> = ({ onGenerate, isLoading }) => {
   const { t } = useLanguage();
   const [prompt, setPrompt] = React.useState('');
   const [numImages, setNumImages] = React.useState<1 | 2 | 4>(1);
   const [aspectRatio, setAspectRatio] = React.useState<AspectRatio>('1:1');
+  const [quality, setQuality] = React.useState<Quality>('standard');
+  const [imageSize, setImageSize] = React.useState<ImageSize>('1K');
   const [isEnhancing, setIsEnhancing] = React.useState(false);
   const [isListening, setIsListening] = React.useState(false);
 
@@ -29,7 +33,7 @@ const GeneratePanel: React.FC<GeneratePanelProps> = ({ onGenerate, isLoading }) 
 
   const handleApply = () => {
     if (prompt.trim()) {
-      onGenerate(prompt, numImages, aspectRatio);
+      onGenerate(prompt, numImages, aspectRatio, quality, imageSize);
     }
   };
   
@@ -125,6 +129,48 @@ const GeneratePanel: React.FC<GeneratePanelProps> = ({ onGenerate, isLoading }) 
                 {style}
             </button>
         ))}
+      </div>
+
+      {/* Quality & Size Selection */}
+      <div className="p-4 bg-gray-100 dark:bg-white/5 rounded-xl border border-gray-200 dark:border-white/10 space-y-4">
+          <div>
+              <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 block">Model Quality</label>
+              <div className="flex gap-2">
+                  <button
+                      onClick={() => setQuality('standard')}
+                      disabled={isLoading}
+                      className={`flex-1 py-2 px-4 rounded-lg text-sm font-bold transition-all ${quality === 'standard' ? 'bg-white dark:bg-gray-700 text-theme-accent shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-white/10'}`}
+                  >
+                      Standard (Fast)
+                  </button>
+                  <button
+                      onClick={() => setQuality('pro')}
+                      disabled={isLoading}
+                      className={`flex-1 py-2 px-4 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${quality === 'pro' ? 'bg-theme-gradient text-white shadow-md' : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-white/10'}`}
+                  >
+                      <SparkleIcon className="w-4 h-4" />
+                      Pro (High Quality)
+                  </button>
+              </div>
+          </div>
+
+          {quality === 'pro' && (
+              <div className="animate-fade-in">
+                  <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 block">Resolution</label>
+                  <div className="flex gap-2">
+                      {(['1K', '2K', '4K'] as const).map(size => (
+                          <button
+                              key={size}
+                              onClick={() => setImageSize(size)}
+                              disabled={isLoading}
+                              className={`flex-1 py-1.5 px-3 rounded-lg text-sm font-semibold transition-all ${imageSize === size ? 'bg-white dark:bg-gray-700 text-theme-accent shadow-sm border-2 border-theme-accent' : 'bg-gray-200 dark:bg-white/10 text-gray-600 dark:text-gray-400'}`}
+                          >
+                              {size}
+                          </button>
+                      ))}
+                  </div>
+              </div>
+          )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">

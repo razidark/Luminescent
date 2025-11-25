@@ -4,17 +4,60 @@
 */
 import React, { useState, useEffect, memo, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Creation, CreationType, Tab } from '../types';
+import { Creation, Tab } from '../types';
 import { getAllCreations, deleteCreation } from '../utils/db';
 import Spinner from './Spinner';
-// FIX: Imported all missing icons to resolve module export errors.
-import { GalleryIcon, DownloadIcon, EditIcon, TrashIcon, SparkleIcon, VideoIcon, RefreshIcon } from './icons';
+import { GalleryIcon, DownloadIcon, EditIcon, TrashIcon, VideoIcon, RefreshIcon } from './icons';
 
 interface GalleryViewProps {
     onEdit: (file: File, targetTab: Tab) => void;
     setError: (error: string | null) => void;
     onRemix: (prompt: string) => void;
 }
+
+// Sub-component to manage Object URL lifecycle and prevent memory leaks
+const GalleryThumbnail: React.FC<{ 
+    item: Creation; 
+    onClick: () => void; 
+    onEdit: (e: React.MouseEvent) => void; 
+    onDownload: (e: React.MouseEvent) => void; 
+    onDelete: (e: React.MouseEvent) => void; 
+    onRemix: (e: React.MouseEvent) => void;
+    t: (key: string) => string;
+}> = memo(({ item, onClick, onEdit, onDownload, onDelete, onRemix, t }) => {
+    const [thumbUrl, setThumbUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        const url = URL.createObjectURL(item.thumbnailBlob);
+        setThumbUrl(url);
+        return () => URL.revokeObjectURL(url);
+    }, [item.thumbnailBlob]);
+
+    if (!thumbUrl) return <div className="w-full h-full bg-gray-200 dark:bg-gray-800 animate-pulse" />;
+
+    return (
+        <div className="relative group rounded-lg overflow-hidden aspect-square animated-border-box" onClick={onClick}>
+            <img src={thumbUrl} alt={`Creation ${item.id}`} className="w-full h-full object-cover cursor-pointer transition-transform duration-500 group-hover:scale-110" />
+            {item.type === 'video' && <VideoIcon className="absolute bottom-2 right-2 w-6 h-6 text-white drop-shadow-lg" />}
+            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
+                {item.prompt && (
+                    <button onClick={onRemix} className="p-3 bg-white/10 text-gray-200 rounded-full transition-all hover:bg-theme-accent-hover hover:scale-110 active:scale-95" title={t('galleryRemix')}>
+                        <RefreshIcon className="w-5 h-5" />
+                    </button>
+                )}
+                <button onClick={onEdit} disabled={item.type === 'video'} className="p-3 bg-white/10 text-gray-200 rounded-full transition-all hover:bg-theme-accent-hover hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <EditIcon className="w-5 h-5" />
+                </button>
+                <button onClick={onDownload} className="p-3 bg-white/10 text-gray-200 rounded-full transition-all hover:bg-theme-accent-hover hover:scale-110 active:scale-95">
+                    <DownloadIcon className="w-5 h-5" />
+                </button>
+                <button onClick={onDelete} className="p-3 bg-white/10 text-gray-200 rounded-full transition-all hover:bg-red-500/80 hover:scale-110 active:scale-95">
+                    <TrashIcon className="w-5 h-5" />
+                </button>
+            </div>
+        </div>
+    );
+});
 
 const GalleryView: React.FC<GalleryViewProps> = ({ onEdit, setError, onRemix }) => {
     const { t } = useLanguage();
@@ -115,21 +158,18 @@ const GalleryView: React.FC<GalleryViewProps> = ({ onEdit, setError, onRemix }) 
                 </div>
             ) : (
                 <div className="w-full grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                    {filteredCreations.map(item => {
-                        const thumbUrl = URL.createObjectURL(item.thumbnailBlob);
-                        return (
-                             <div key={item.id} className="relative group rounded-lg overflow-hidden aspect-square animated-border-box" onClick={() => setPreviewItem({item, url: URL.createObjectURL(item.blob)})}>
-                                <img src={thumbUrl} alt={`Creation ${item.id}`} className="w-full h-full object-cover cursor-pointer" onLoad={() => URL.revokeObjectURL(thumbUrl)} />
-                                {item.type === 'video' && <VideoIcon className="absolute bottom-2 right-2 w-6 h-6 text-white drop-shadow-lg" />}
-                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                    {item.prompt && <button onClick={(e) => { e.stopPropagation(); handleRemix(item); }} className="p-3 bg-white/10 text-gray-200 rounded-full transition-colors hover:bg-theme-accent-hover" title={t('galleryRemix')}><RefreshIcon className="w-5 h-5" /></button>}
-                                    <button onClick={(e) => { e.stopPropagation(); handleEdit(item); }} disabled={item.type === 'video'} className="p-3 bg-white/10 text-gray-200 rounded-full transition-colors hover:bg-theme-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"><EditIcon className="w-5 h-5" /></button>
-                                    <button onClick={(e) => { e.stopPropagation(); handleDownload(item); }} className="p-3 bg-white/10 text-gray-200 rounded-full transition-colors hover:bg-theme-accent-hover"><DownloadIcon className="w-5 h-5" /></button>
-                                    <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id!); }} className="p-3 bg-white/10 text-gray-200 rounded-full transition-colors hover:bg-red-500/80"><TrashIcon className="w-5 h-5" /></button>
-                                </div>
-                            </div>
-                        )
-                    })}
+                    {filteredCreations.map(item => (
+                        <GalleryThumbnail
+                            key={item.id}
+                            item={item}
+                            t={t}
+                            onClick={() => setPreviewItem({item, url: URL.createObjectURL(item.blob)})}
+                            onEdit={(e) => { e.stopPropagation(); handleEdit(item); }}
+                            onDownload={(e) => { e.stopPropagation(); handleDownload(item); }}
+                            onDelete={(e) => { e.stopPropagation(); handleDelete(item.id!); }}
+                            onRemix={(e) => { e.stopPropagation(); handleRemix(item); }}
+                        />
+                    ))}
                 </div>
             )}
             
@@ -141,11 +181,11 @@ const GalleryView: React.FC<GalleryViewProps> = ({ onEdit, setError, onRemix }) 
                         ) : (
                              <video src={previewItem.url} controls autoPlay loop className="w-full h-full object-contain" />
                         )}
-                        <div className="flex items-center justify-center gap-4 p-4 bg-gray-900/50 rounded-b-lg flex-wrap">
+                        <div className="flex items-center justify-center gap-4 p-4 bg-gray-900/50 rounded-b-lg flex-wrap backdrop-blur-md border-t border-white/10">
                              {previewItem.item.prompt && <span className="text-gray-300 text-sm italic hidden md:block truncate max-w-md">"{previewItem.item.prompt}"</span>}
                              <div className="flex items-center gap-2 flex-shrink-0">
-                                {previewItem.item.prompt && <button onClick={() => handleRemix(previewItem.item)} className="flex items-center gap-2 px-4 py-2 bg-theme-gradient text-white rounded-md transition-colors hover:brightness-110 font-semibold shadow-lg"><RefreshIcon className="w-4 h-4"/>{t('galleryRemix')}</button>}
-                                <button onClick={() => handleEdit(previewItem.item)} disabled={previewItem.item.type === 'video'} className="flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-md transition-colors hover:bg-gray-300 dark:hover:bg-white/20 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"><EditIcon className="w-4 h-4"/>{t('galleryEdit')}</button>
+                                {previewItem.item.prompt && <button onClick={() => { setPreviewItem(null); handleRemix(previewItem.item); }} className="flex items-center gap-2 px-4 py-2 bg-theme-gradient text-white rounded-md transition-colors hover:brightness-110 font-semibold shadow-lg active:scale-95"><RefreshIcon className="w-4 h-4"/>{t('galleryRemix')}</button>}
+                                <button onClick={() => { setPreviewItem(null); handleEdit(previewItem.item); }} disabled={previewItem.item.type === 'video'} className="flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-md transition-colors hover:bg-gray-300 dark:hover:bg-white/20 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"><EditIcon className="w-4 h-4"/>{t('galleryEdit')}</button>
                                 <button onClick={() => handleDownload(previewItem.item)} className="flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-md transition-colors hover:bg-gray-300 dark:hover:bg-white/20 font-semibold"><DownloadIcon className="w-4 h-4"/>{t('galleryDownload')}</button>
                                 <button onClick={() => handleDelete(previewItem.item.id!)} className="flex items-center gap-2 px-4 py-2 bg-red-800/50 text-red-200 rounded-md transition-colors hover:bg-red-800/80 font-semibold"><TrashIcon className="w-4 h-4"/>{t('galleryDelete')}</button>
                             </div>

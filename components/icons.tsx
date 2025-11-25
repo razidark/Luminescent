@@ -149,6 +149,45 @@ export const ActualSizeIcon: React.FC<{ className?: string }> = ({ className }) 
     </DuotoneIcon>
 );
 
+export const RotateLeftIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <DuotoneIcon className={className}>
+        <path d="M3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12" stroke="currentColor" opacity="0.5" />
+        <path d="M3 12L7 8M3 12L7 16" stroke="url(#duotone-gradient)" />
+    </DuotoneIcon>
+);
+
+export const RotateRightIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <DuotoneIcon className={className}>
+        <path d="M21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12" stroke="currentColor" opacity="0.5" />
+        <path d="M21 12L17 8M21 12L17 16" stroke="url(#duotone-gradient)" />
+    </DuotoneIcon>
+);
+
+export const FlipHorizontalIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <DuotoneIcon className={className}>
+        <path d="M12 4V20" stroke="currentColor" strokeDasharray="4 4" opacity="0.5" />
+        <path d="M17 14L20 12L17 10V14Z" stroke="url(#duotone-gradient)" />
+        <path d="M7 14L4 12L7 10V14Z" stroke="url(#duotone-gradient)" />
+    </DuotoneIcon>
+);
+
+export const FlipVerticalIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <DuotoneIcon className={className}>
+        <path d="M4 12H20" stroke="currentColor" strokeDasharray="4 4" opacity="0.5" />
+        <path d="M10 7L12 4L14 7H10Z" stroke="url(#duotone-gradient)" />
+        <path d="M10 17L12 20L14 17H10Z" stroke="url(#duotone-gradient)" />
+    </DuotoneIcon>
+);
+
+export const GifIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <DuotoneIcon className={className}>
+        <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" opacity="0.5" />
+        <path d="M8 13V11C8 10.4477 8.44772 10 9 10H10M8 13V14C8 14.5523 8.44772 15 9 15H10M8 13H9.5" stroke="url(#duotone-gradient)" />
+        <path d="M12 10V15" stroke="url(#duotone-gradient)" />
+        <path d="M15 10V15M15 10H17M15 13H16.5" stroke="url(#duotone-gradient)" />
+    </DuotoneIcon>
+);
+
 export const ResetIcon: React.FC<{ className?: string }> = ({ className }) => <HistoryIcon className={className}/>;
 
 export const DownloadIcon: React.FC<{ className?: string }> = ({ className }) => (

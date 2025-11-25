@@ -1,3 +1,4 @@
+
 export default {
     "createEditEvolve": "Create. Edit. {evolveWord}.",
     "evolve": "Evolve",
@@ -381,6 +382,8 @@ export default {
     "shortcutsUndoDesc": "Reverts the last change you made.",
     "shortcutsRedo": "Redo Action",
     "shortcutsRedoDesc": "Re-applies an action you have undone.",
+    "shortcutsPeek": "Peek Original",
+    "shortcutsPeekDesc": "Hold '\\' (backslash) to see the original image.",
     "shortcutsPan": "Pan Canvas",
     "shortcutsPanDesc": "When zoomed in, hold Space and drag to move around the image.",
     "shortcutsZoom": "Zoom In / Out",

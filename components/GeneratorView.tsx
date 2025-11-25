@@ -6,7 +6,6 @@ import React, { memo, useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import Spinner from './Spinner';
 import GeneratePanel from './GeneratePanel';
-// FIX: Imported all missing icons to resolve module export errors.
 import { GenerateIcon, EditIcon, DownloadIcon, SaveIcon } from './icons';
 import { dataURLtoFile } from '../utils/helpers';
 
@@ -19,7 +18,7 @@ interface GeneratorViewProps {
     setError: (error: string | null) => void;
     onSelectForEditing: (base64Image: string) => void;
     onDownload: (file: File) => void;
-    onGenerate: (prompt: string, numImages: number, aspectRatio: '1:1' | '4:3' | '3:4' | '16:9' | '9:16') => void;
+    onGenerate: (prompt: string, numImages: number, aspectRatio: '1:1' | '4:3' | '3:4' | '16:9' | '9:16', quality: 'standard' | 'pro', imageSize: '1K' | '2K' | '4K') => void;
 }
 
 const GeneratorView: React.FC<GeneratorViewProps> = ({

@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -5,7 +6,7 @@
 
 import * as React from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { SparkleIcon, MagicWandIcon } from './icons';
+import { SparkleIcon, MagicWandIcon, UndoIcon } from './icons';
 import { enhancePrompt } from '../services/geminiService';
 
 interface AddProductPanelProps {
@@ -17,11 +18,12 @@ interface AddProductPanelProps {
   brushSize: number;
   setBrushSize: (size: number) => void;
   onClear: () => void;
+  onUndo: () => void;
   onGenerateSuggestions: () => Promise<string[]>;
   onAutoSelect: (label: string) => Promise<void>;
 }
 
-const AddProductPanel: React.FC<AddProductPanelProps> = ({ prompt, setPrompt, onGenerate, isLoading, hasMask, brushSize, setBrushSize, onClear, onGenerateSuggestions, onAutoSelect }) => {
+const AddProductPanel: React.FC<AddProductPanelProps> = ({ prompt, setPrompt, onGenerate, isLoading, hasMask, brushSize, setBrushSize, onClear, onUndo, onGenerateSuggestions, onAutoSelect }) => {
   const { t } = useLanguage();
   const [suggestions, setSuggestions] = React.useState<string[]>([]);
   const [isSuggesting, setIsSuggesting] = React.useState(false);
@@ -151,17 +153,25 @@ const AddProductPanel: React.FC<AddProductPanelProps> = ({ prompt, setPrompt, on
          </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 pt-2">
+      <div className="flex gap-2 pt-2">
+         <button
+            onClick={onUndo}
+            className="flex-shrink-0 p-3.5 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-xl transition-all hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 disabled:opacity-50"
+            disabled={isLoading}
+            title={t('undo')}
+        >
+            <UndoIcon className="w-5 h-5" />
+        </button>
          <button
             onClick={onClear}
-            className="w-full bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 font-bold py-4 px-6 rounded-lg transition-all hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 text-base disabled:opacity-50"
+            className="flex-1 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 font-bold py-4 px-6 rounded-lg transition-all hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 text-base disabled:opacity-50"
             disabled={isLoading}
         >
             {t('clearMask')}
         </button>
         <button
             onClick={onGenerate}
-            className="w-full bg-theme-gradient text-white font-bold py-4 px-6 rounded-lg transition-all duration-300 ease-in-out shadow-lg shadow-theme-accent/20 hover:shadow-xl hover:shadow-theme-accent/40 hover:-translate-y-px active:scale-95 active:shadow-inner text-base disabled:from-gray-700 disabled:to-gray-600 disabled:shadow-none disabled:cursor-not-allowed disabled:transform-none"
+            className="flex-[2] bg-theme-gradient text-white font-bold py-4 px-6 rounded-lg transition-all duration-300 ease-in-out shadow-lg shadow-theme-accent/20 hover:shadow-xl hover:shadow-theme-accent/40 hover:-translate-y-px active:scale-95 active:shadow-inner text-base disabled:from-gray-700 disabled:to-gray-600 disabled:shadow-none disabled:cursor-not-allowed disabled:transform-none"
             disabled={isLoading || !prompt.trim() || !hasMask}
         >
           <div className="flex items-center justify-center gap-2">
