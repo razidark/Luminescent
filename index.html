@@ -1,0 +1,444 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Luminescence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              'theme-accent': 'var(--theme-accent)',
+              'theme-accent-hover': 'var(--theme-accent-hover)',
+              'theme-gradient-from': 'var(--theme-gradient-from)',
+              'theme-gradient-to': 'var(--theme-gradient-to)',
+            },
+            animation: {
+              'progress-image': 'progress-bar-animation-image 15s cubic-bezier(0.4, 1, 0.4, 1) forwards',
+              'progress-video': 'progress-bar-animation-video 120s cubic-bezier(0.4, 1, 0.4, 1) forwards',
+              'pulse-glow': 'pulse-glow 2.5s infinite cubic-bezier(0.4, 0, 0.6, 1)',
+              'fade-in': 'fade-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
+              'float-up': 'float-up 10s linear infinite',
+              'blink': 'blink 1s step-end infinite',
+              'gradient-move': 'gradient-shift 4s ease infinite',
+            },
+            keyframes: {
+              'progress-bar-animation-image': {
+                'from': { width: '0%' },
+                'to': { width: '95%' }
+              },
+              'progress-bar-animation-video': {
+                'from': { width: '0%' },
+                'to': { width: '95%' }
+              },
+              'pulse-glow': {
+                '0%, 100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 color-mix(in srgb, var(--theme-accent) 40%, transparent)' },
+                '50%': { transform: 'scale(1.05)', boxShadow: '0 0 10px 5px color-mix(in srgb, var(--theme-accent) 20%, transparent)' }
+              },
+              'fade-in': {
+                'from': { opacity: '0', transform: 'translateY(10px)' },
+                'to': { opacity: '1', transform: 'translateY(0)' }
+              },
+              'float-up': {
+                '0%': { transform: 'translateY(0) scale(1)', opacity: '0' },
+                '10%': { opacity: '0.6' },
+                '90%': { opacity: '0.4' },
+                '100%': { transform: 'translateY(-80vh) scale(0.5)', opacity: '0' }
+              },
+              'blink': {
+                '0%, 100%': { opacity: '1' },
+                '50%': { opacity: '0' }
+              },
+              'gradient-shift': {
+                '0%': { backgroundPosition: '0% 50%' },
+                '50%': { backgroundPosition: '100% 50%' },
+                '100%': { backgroundPosition: '0% 50%' }
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.1.0/",
+    "react": "https://esm.sh/react@^19.1.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "react-dom/client": "https://esm.sh/react-dom@^19.1.0/client",
+    "@google/genai": "https://esm.sh/@google/genai@^1.10.0",
+    "react-image-crop": "https://esm.sh/react-image-crop@^11.0.6",
+    "react-tooltip": "https://esm.sh/react-tooltip@^5.27.1"
+  }
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Roboto+Mono&family=Playfair+Display:wght@700&family=Lobster&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://esm.sh/react-image-crop@^11.0.6/dist/ReactCrop.css" />
+<link rel="stylesheet" href="https://esm.sh/react-tooltip@^5.27.1/dist/react-tooltip.css" />
+<style>
+:root {
+  --theme-gradient-from: #a855f7;
+  --theme-gradient-to: #ec4899;
+  --theme-accent: #ec4899;
+  --theme-accent-hover: #db2777;
+  --clock-hour: #a855f7;
+  --clock-minute: #ec4899;
+  --clock-second: #f87171;
+}
+body {
+    font-family: 'Sora', sans-serif;
+}
+.dark body {
+    background-color: #030303;
+    background-image: radial-gradient(ellipse at bottom, color-mix(in srgb, var(--theme-gradient-from) 20%, transparent), transparent 70%), radial-gradient(ellipse at top, color-mix(in srgb, var(--theme-gradient-to) 15%, transparent), transparent 60%);
+}
+.app-tooltip {
+    background-color: rgba(229, 231, 235, 0.9) !important; /* gray-200 */
+    backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(209, 213, 219, 0.8) !important; /* gray-300 */
+    border-radius: 0.5rem !important;
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.875rem !important;
+    font-weight: 600 !important;
+    color: #1f2937 !important; /* gray-800 */
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
+}
+.dark .app-tooltip {
+    background-color: rgba(20, 20, 25, 0.8) !important;
+    border: 1px solid rgba(55, 65, 81, 0.5) !important;
+    color: #f9fafb !important;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  width: 100%;
+}
+input[type="range"]:focus {
+  outline: none;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  background: color-mix(in srgb, var(--theme-accent) 40%, transparent);
+  height: 0.25rem;
+  border-radius: 0.5rem;
+}
+input[type="range"]::-moz-range-track {
+  background: color-mix(in srgb, var(--theme-accent) 40%, transparent);
+  height: 0.25rem;
+  border-radius: 0.5rem;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; /* Override default look */
+  appearance: none;
+  margin-top: -6px; /* Centers thumb on the track */
+  background-color: #f9fafb;
+  height: 1rem;
+  width: 1rem;
+  border-radius: 9999px;
+  border: 2px solid var(--theme-accent);
+  transition: box-shadow 0.2s ease-in-out;
+}
+input[type="range"]:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme-accent) 30%, transparent);
+}
+input[type="range"]::-moz-range-thumb {
+  background-color: #f9fafb;
+  height: 1rem;
+  width: 1rem;
+  border-radius: 9999px;
+  border: 2px solid var(--theme-accent);
+  transition: box-shadow 0.2s ease-in-out;
+}
+input[type="range"]:focus::-moz-range-thumb {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme-accent) 30%, transparent);
+}
+.dark input[type="range"]::-webkit-slider-thumb {
+  background-color: #1f2937;
+}
+.dark input[type="range"]::-moz-range-thumb {
+  background-color: #1f2937;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.4);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(156, 163, 175, 0.6);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background-color: rgba(107, 114, 128, 0.4);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(107, 114, 128, 0.6);
+}
+
+
+@keyframes animated-gradient-text {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes rotate-border {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.animated-border-box {
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+}
+.animated-border-box::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 250%;
+  height: 250%;
+  z-index: -1;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    transparent 25%,
+    var(--theme-gradient-from),
+    var(--theme-gradient-to),
+    var(--theme-gradient-from),
+    transparent 75%,
+    transparent 100%
+  );
+  animation: rotate-border 6s linear infinite;
+  transform-origin: center center;
+  transform: translate(-50%, -50%);
+}
+.checkerboard-bg {
+    background-color: #e5e7eb;
+    background-image:
+        linear-gradient(45deg, #f9fafb 25%, transparent 25%),
+        linear-gradient(-45deg, #f9fafb 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #f9fafb 75%),
+        linear-gradient(-45deg, transparent 75%, #f9fafb 75%);
+    background-size: 24px 24px;
+    background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+}
+.dark .checkerboard-bg {
+    background-color: #111827;
+    background-image:
+        linear-gradient(45deg, rgba(255,255,255,0.05) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(255,255,255,0.05) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.05) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.05) 75%);
+}
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.6s cubic-bezier(0.215, 0.610, 0.355, 1.000) forwards;
+}
+.feature-card {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s cubic-bezier(0.215, 0.610, 0.355, 1.000), transform 0.6s cubic-bezier(0.215, 0.610, 0.355, 1.000);
+}
+.feature-card.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+.glow {
+  box-shadow: 0 0 15px 3px color-mix(in srgb, var(--theme-accent) 30%, transparent);
+}
+.bg-theme-gradient {
+  background-image: linear-gradient(to right, var(--theme-gradient-from), var(--theme-gradient-to));
+}
+.text-theme-gradient {
+  background-image: linear-gradient(to right, var(--theme-gradient-from), var(--theme-gradient-to));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.bg-theme-accent { background-color: var(--theme-accent); }
+.bg-theme-accent-hover:hover { background-color: var(--theme-accent-hover); }
+.ring-theme-accent {
+    --tw-ring-color: var(--theme-accent);
+}
+.border-theme-accent { border-color: var(--theme-accent); }
+.accent-theme-accent { accent-color: var(--theme-accent); }
+.group-hover\\:bg-theme-accent\\/50:hover { background-color: color-mix(in srgb, var(--theme-accent) 50%, transparent); }
+.shadow-theme-accent\\/20 { --tw-shadow-color: color-mix(in srgb, var(--theme-accent) 20%, transparent); --tw-shadow: var(--tw-shadow-colored); }
+.hover\\:shadow-theme-accent\\/20:hover { --tw-shadow-color: color-mix(in srgb, var(--theme-accent) 20%, transparent); --tw-shadow: var(--tw-shadow-colored); }
+.hover\\:shadow-theme-accent\\/40:hover { --tw-shadow-color: color-mix(in srgb, var(--theme-accent) 40%, transparent); --tw-shadow: var(--tw-shadow-colored); }
+.via-theme-accent\\/30 { --tw-gradient-to: transparent; --tw-gradient-stops: var(--tw-gradient-from), color-mix(in srgb, var(--theme-accent) 30%, transparent), var(--tw-gradient-to); }
+@keyframes progress-bar-animation-image {
+  from { width: 0%; }
+  to { width: 95%; }
+}
+@keyframes progress-bar-animation-video {
+  from { width: 0%; }
+  to { width: 95%; }
+}
+.animate-progress-image {
+  animation: progress-bar-animation-image 15s cubic-bezier(0.4, 1, 0.4, 1) forwards;
+}
+.animate-progress-video {
+  animation: progress-bar-animation-video 120s cubic-bezier(0.4, 1, 0.4, 1) forwards;
+}
+@keyframes pulse-glow {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--theme-accent) 40%, transparent);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 10px 5px color-mix(in srgb, var(--theme-accent) 20%, transparent);
+  }
+}
+.animate-pulse-glow {
+  animation: pulse-glow 2.5s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+.eyedropper-preview {
+    position: fixed;
+    z-index: 1000;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: rgba(255, 255, 255, 0.9);
+    padding: 4px 8px;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    border: 1px solid rgba(0,0,0,0.1);
+    backdrop-filter: blur(4px);
+}
+.dark .eyedropper-preview {
+    background-color: rgba(30, 30, 30, 0.9);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+.eyedropper-color {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.2);
+}
+.eyedropper-text {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 14px;
+    font-weight: bold;
+    color: #1f2937;
+}
+.dark .eyedropper-text {
+    color: #f9fafb;
+}
+</style>
+  <script>
+    // To prevent Flash Of Incorrect Theme (FOIT), this script must be in the <head>
+    if (localStorage.getItem('luminescenceMode') === 'dark' || (!('luminescenceMode' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  </script>
+  </head>
+  <body class="bg-gray-100 dark:bg-[#0a0a0a]">
+    <canvas id="gradient-canvas" class="fixed inset-0 -z-10 dark:hidden"></canvas>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+    <script>
+      // Gradient background animation for light mode
+      const canvas = document.getElementById('gradient-canvas');
+      if (canvas && !document.documentElement.classList.contains('dark')) {
+        const ctx = canvas.getContext('2d');
+        let width, height, dpr;
+        let blobs = [];
+
+        const blobColors = [
+          { r: 233, g: 213, b: 255 }, // light purple
+          { r: 253, g: 230, b: 242 }, // light pink
+          { r: 224, g: 242, b: 254 }  // light blue
+        ];
+
+        class Blob {
+          constructor() {
+            this.x = Math.random() * width;
+            this.y = Math.random() * height;
+            this.radius = Math.random() * (Math.max(width, height) / 4) + (Math.max(width, height) / 6);
+            this.vx = (Math.random() - 0.5) * 0.5;
+            this.vy = (Math.random() - 0.5) * 0.5;
+            this.color = blobColors[Math.floor(Math.random() * blobColors.length)];
+          }
+
+          update() {
+            this.x += this.vx;
+            this.y += this.vy;
+
+            if (this.x - this.radius < 0) {
+              this.vx = Math.abs(this.vx); this.x = this.radius;
+            } else if (this.x + this.radius > width) {
+              this.vx = -Math.abs(this.vx); this.x = width - this.radius;
+            }
+            if (this.y - this.radius < 0) {
+              this.vy = Math.abs(this.vy); this.y = this.radius;
+            } else if (this.y + this.radius > height) {
+              this.vy = -Math.abs(this.vy); this.y = height - this.radius;
+            }
+          }
+        }
+
+        let animationFrameId;
+        function init() {
+          if (animationFrameId) cancelAnimationFrame(animationFrameId);
+          dpr = window.devicePixelRatio || 1;
+          width = canvas.width = window.innerWidth * dpr;
+          height = canvas.height = window.innerHeight * dpr;
+          canvas.style.width = `${window.innerWidth}px`;
+          canvas.style.height = `${window.innerHeight}px`;
+          blobs = Array(3).fill().map(() => new Blob());
+          animate();
+        }
+
+        function animate() {
+          ctx.clearRect(0, 0, width, height);
+          
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = width;
+          tempCanvas.height = height;
+          const tempCtx = tempCanvas.getContext('2d');
+          
+          tempCtx.filter = 'blur(80px)';
+          blobs.forEach(blob => {
+            blob.update();
+            tempCtx.fillStyle = `rgb(${blob.color.r}, ${blob.color.g}, ${blob.color.b})`;
+            tempCtx.beginPath();
+            tempCtx.arc(blob.x, blob.y, blob.radius, 0, Math.PI * 2);
+            tempCtx.fill();
+          });
+          
+          ctx.drawImage(tempCanvas, 0, 0);
+
+          animationFrameId = requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', init);
+        init();
+      }
+    </script>
+  </body>
+</html>
