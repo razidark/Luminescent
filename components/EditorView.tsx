@@ -410,34 +410,45 @@ const EditorView: React.FC<EditorViewProps> = (props) => {
     };
 
     const renderPanel = () => {
+        // Animation wrapper for smoother panel transitions
+        const PanelWrapper = ({ children }: { children: React.ReactNode }) => (
+            <div className="animate-fade-in w-full h-full flex flex-col">
+                {children}
+            </div>
+        );
+
         if (variations) {
-            return <VariationsPanel.Generated variations={variations} onAccept={handleAcceptVariation} onBack={() => setVariations(null)} originalImageUrl={currentImageUrl} />
+            return <PanelWrapper><VariationsPanel.Generated variations={variations} onAccept={handleAcceptVariation} onBack={() => setVariations(null)} originalImageUrl={currentImageUrl} /></PanelWrapper>
         }
+        
+        let content;
         switch(activeTab) {
-            case 'erase': return <ErasePanel prompt={prompt} setPrompt={setPrompt} brushSize={brushSize} setBrushSize={setBrushSize} onGenerate={() => handleMagicErase(maskImageUrl!)} onClear={() => canvasRef.current?.clear()} onUndo={() => canvasRef.current?.undo()} onRedo={() => canvasRef.current?.redo()} onInvert={() => canvasRef.current?.invert()} isLoading={isLoading} onGenerateSuggestions={() => handleGeneratePromptSuggestions('replace')} onAutoSelect={handleAutoSelect} onMagicMaskClick={handleMagicMaskRequest} tool={tool} setTool={setTool} />;
-            case 'retouch': return <RetouchPanel prompt={prompt} setPrompt={setPrompt} brushSize={brushSize} setBrushSize={setBrushSize} onApplyRetouch={() => handleApplyRetouch(maskImageUrl!)} onApplySelectiveAdjust={() => handleSelectiveAdjust(maskImageUrl!)} onApplyHeal={() => handleApplyHeal(maskImageUrl!)} onClear={() => canvasRef.current?.clear()} onUndo={() => canvasRef.current?.undo()} onRedo={() => canvasRef.current?.redo()} onInvert={() => canvasRef.current?.invert()} isLoading={isLoading} onAutoSelect={handleAutoSelect} onMagicMaskClick={handleMagicMaskRequest} tool={tool} setTool={setTool} />;
-            case 'sketch': return <SketchPanel prompt={prompt} setPrompt={setPrompt} brushSize={brushSize} setBrushSize={setBrushSize} color={sketchColor} setColor={setSketchColor} onGenerate={handleGenerateSketch} onClear={() => canvasRef.current?.clear()} onUndo={() => canvasRef.current?.undo()} onRedo={() => canvasRef.current?.redo()} isLoading={isLoading} tool={tool} setTool={setTool} />;
-            case 'focus': return <FocusPanel onApplyFocus={handleApplyFocus} isLoading={isLoading} />;
-            case 'text': return <TextPanel onApplyText={handleApplyText} isLoading={isLoading} initialText={textToApply} />;
-            case 'adjust': return <AdjustmentPanel onApplyAdjustment={handleApplyAdjustment} isLoading={isLoading} />;
-            case 'color': return <ColorPanel isLoading={isLoading} />;
-            case 'filters': return <FilterPanel onApplyFilter={handleApplyFilter} onApplyLuckyFilter={handleApplyLuckyFilter} isLoading={isLoading} />;
-            case 'style-transfer': return <StyleTransferPanel isLoading={isLoading} />;
-            case 'crop': return <CropPanel onApplyCrop={() => handleApplyCrop(completedCrop!, imgRef.current!)} onSetAspect={setAspect} isLoading={isLoading} isCropping={!!completedCrop} onAutoCrop={handleAutoCrop} />; 
-            case 'expand': return <ExpandPanel onApplyExpand={handleApplyExpand} isLoading={isLoading} />;
-            case 'variations': return <VariationsPanel.Generate isLoading={isLoading} onGenerate={async (creativity) => { const results = await handleGenerateVariations(creativity); if (results) { setVariations(results); } }} />;
-            case 'upscale': return <UpscalePanel onApplyUpscale={handleApplyUpscale} isLoading={isLoading} />;
-            case 'enhance': return <EnhancePanel onApplyEnhance={handleApplyEnhance} isLoading={isLoading} />;
-            case 'restore': return <RestorePanel onApplyRestore={handleApplyRestore} isLoading={isLoading} />;
-            case 'background': return <BackgroundPanel onRemoveBackground={handleRemoveBackground} onReplaceBackground={handleReplaceBackground} isLoading={isLoading} hasTransparentBackground={hasTransparentBackground} />;
-            case 'product': return <ProductPanel onIsolate={handleRemoveBackground} onSetBackground={handleSetProductBackground} onAddShadow={handleAddProductShadow} isLoading={isLoading} hasTransparentBackground={hasTransparentBackground} />;
-            case 'add-product': return <AddProductPanel prompt={prompt} setPrompt={setPrompt} onGenerate={() => handleApplyAddProduct(maskImageUrl!)} isLoading={isLoading} hasMask={!!maskImageUrl} brushSize={brushSize} setBrushSize={setBrushSize} onClear={() => canvasRef.current?.clear()} onUndo={() => canvasRef.current?.undo()} onRedo={() => canvasRef.current?.redo()} onInvert={() => canvasRef.current?.invert()} onGenerateSuggestions={() => handleGeneratePromptSuggestions('add')} onAutoSelect={handleAutoSelect} onMagicMaskClick={handleMagicMaskRequest} tool={tool} setTool={setTool} />;
-            case 'cardify': return <CardifyPanel onApplyCardify={(prompt) => handleApplyCardify(prompt)} isLoading={isLoading} currentImage={currentImage} />;
-            case 'memeify': return <MemePanel />;
-            case 'captions': return <CaptionPanel onSelectSuggestion={(text) => setTextToApply(text)} isLoading={isLoading} />;
-            case 'gif': return <GifPanel history={history} isLoading={isLoading} />;
-            default: return <EmptyStatePanel />;
+            case 'erase': content = <ErasePanel prompt={prompt} setPrompt={setPrompt} brushSize={brushSize} setBrushSize={setBrushSize} onGenerate={() => handleMagicErase(maskImageUrl!)} onClear={() => canvasRef.current?.clear()} onUndo={() => canvasRef.current?.undo()} onRedo={() => canvasRef.current?.redo()} onInvert={() => canvasRef.current?.invert()} isLoading={isLoading} onGenerateSuggestions={() => handleGeneratePromptSuggestions('replace')} onAutoSelect={handleAutoSelect} onMagicMaskClick={handleMagicMaskRequest} tool={tool} setTool={setTool} />; break;
+            case 'retouch': content = <RetouchPanel prompt={prompt} setPrompt={setPrompt} brushSize={brushSize} setBrushSize={setBrushSize} onApplyRetouch={() => handleApplyRetouch(maskImageUrl!)} onApplySelectiveAdjust={() => handleSelectiveAdjust(maskImageUrl!)} onApplyHeal={() => handleApplyHeal(maskImageUrl!)} onClear={() => canvasRef.current?.clear()} onUndo={() => canvasRef.current?.undo()} onRedo={() => canvasRef.current?.redo()} onInvert={() => canvasRef.current?.invert()} isLoading={isLoading} onAutoSelect={handleAutoSelect} onMagicMaskClick={handleMagicMaskRequest} tool={tool} setTool={setTool} />; break;
+            case 'sketch': content = <SketchPanel prompt={prompt} setPrompt={setPrompt} brushSize={brushSize} setBrushSize={setBrushSize} color={sketchColor} setColor={setSketchColor} onGenerate={handleGenerateSketch} onClear={() => canvasRef.current?.clear()} onUndo={() => canvasRef.current?.undo()} onRedo={() => canvasRef.current?.redo()} isLoading={isLoading} tool={tool} setTool={setTool} />; break;
+            case 'focus': content = <FocusPanel onApplyFocus={handleApplyFocus} isLoading={isLoading} />; break;
+            case 'text': content = <TextPanel onApplyText={handleApplyText} isLoading={isLoading} initialText={textToApply} />; break;
+            case 'adjust': content = <AdjustmentPanel onApplyAdjustment={handleApplyAdjustment} isLoading={isLoading} />; break;
+            case 'color': content = <ColorPanel isLoading={isLoading} />; break;
+            case 'filters': content = <FilterPanel onApplyFilter={handleApplyFilter} onApplyLuckyFilter={handleApplyLuckyFilter} isLoading={isLoading} />; break;
+            case 'style-transfer': content = <StyleTransferPanel isLoading={isLoading} />; break;
+            case 'crop': content = <CropPanel onApplyCrop={() => handleApplyCrop(completedCrop!, imgRef.current!)} onSetAspect={setAspect} isLoading={isLoading} isCropping={!!completedCrop} onAutoCrop={handleAutoCrop} />; break;
+            case 'expand': content = <ExpandPanel onApplyExpand={handleApplyExpand} isLoading={isLoading} />; break;
+            case 'variations': content = <VariationsPanel.Generate isLoading={isLoading} onGenerate={async (creativity) => { const results = await handleGenerateVariations(creativity); if (results) { setVariations(results); } }} />; break;
+            case 'upscale': content = <UpscalePanel onApplyUpscale={handleApplyUpscale} isLoading={isLoading} />; break;
+            case 'enhance': content = <EnhancePanel onApplyEnhance={handleApplyEnhance} isLoading={isLoading} />; break;
+            case 'restore': content = <RestorePanel onApplyRestore={handleApplyRestore} isLoading={isLoading} />; break;
+            case 'background': content = <BackgroundPanel onRemoveBackground={handleRemoveBackground} onReplaceBackground={handleReplaceBackground} isLoading={isLoading} hasTransparentBackground={hasTransparentBackground} />; break;
+            case 'product': content = <ProductPanel onIsolate={handleRemoveBackground} onSetBackground={handleSetProductBackground} onAddShadow={handleAddProductShadow} isLoading={isLoading} hasTransparentBackground={hasTransparentBackground} />; break;
+            case 'add-product': content = <AddProductPanel prompt={prompt} setPrompt={setPrompt} onGenerate={() => handleApplyAddProduct(maskImageUrl!)} isLoading={isLoading} hasMask={!!maskImageUrl} brushSize={brushSize} setBrushSize={setBrushSize} onClear={() => canvasRef.current?.clear()} onUndo={() => canvasRef.current?.undo()} onRedo={() => canvasRef.current?.redo()} onInvert={() => canvasRef.current?.invert()} onGenerateSuggestions={() => handleGeneratePromptSuggestions('add')} onAutoSelect={handleAutoSelect} onMagicMaskClick={handleMagicMaskRequest} tool={tool} setTool={setTool} />; break;
+            case 'cardify': content = <CardifyPanel onApplyCardify={(prompt) => handleApplyCardify(prompt)} isLoading={isLoading} currentImage={currentImage} />; break;
+            case 'memeify': content = <MemePanel />; break;
+            case 'captions': content = <CaptionPanel onSelectSuggestion={(text) => setTextToApply(text)} isLoading={isLoading} />; break;
+            case 'gif': content = <GifPanel history={history} isLoading={isLoading} />; break;
+            default: content = <EmptyStatePanel />; break;
         }
+        
+        return <PanelWrapper key={activeTab}>{content}</PanelWrapper>;
     };
 
     return (
@@ -576,9 +587,10 @@ const EditorView: React.FC<EditorViewProps> = (props) => {
             {/* Resize Handle (Desktop Only) */}
             {!isPanelCollapsed && (
                 <div 
-                    className="w-4 flex-shrink-0 cursor-col-resize hover:bg-theme-accent/20 transition-colors flex items-center justify-center hidden lg:flex relative z-20 group border-l border-white/5"
+                    className="w-4 flex-shrink-0 cursor-col-resize hover:bg-theme-accent/20 transition-colors flex items-center justify-center hidden lg:flex relative z-20 group border-l border-white/5 bg-gray-50/50 dark:bg-black/20"
                     onMouseDown={startResizing}
                 >
+                    {/* Visual Grip Indicator */}
                     <div className="w-1 h-8 bg-gray-300 dark:bg-gray-600 rounded-full group-hover:bg-theme-accent transition-colors shadow-sm" />
                 </div>
             )}

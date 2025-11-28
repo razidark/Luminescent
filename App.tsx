@@ -514,8 +514,8 @@ const App: React.FC = () => {
         isHistoryAvailable={history.length > 0 && activeTab !== 'video' && activeTab !== 'gallery' && activeTab !== 'chat'}
       />
       <div className="flex flex-grow relative overflow-hidden min-h-0">
-        {/* If in Editor Mode, we use p-4 to give a small "margin" around the card, but ensure it fits the screen height */}
-        <main className={`relative z-10 flex items-start flex-grow w-full h-full transition-all duration-300 min-h-0 ${isEditorMode ? 'p-4 md:p-6 gap-4' : 'p-4 md:p-8 gap-6'}`}>
+        {/* If in Editor Mode, we use p-2/p-4 to give a small "margin" around the card, but ensure it fits the screen height */}
+        <main className={`relative z-10 flex items-start flex-grow w-full h-full transition-all duration-300 min-h-0 ${isEditorMode ? 'p-2 md:p-4 gap-2' : 'p-4 md:p-8 gap-6'}`}>
           <div className="flex-grow flex flex-col gap-0 w-full h-full min-h-0">
              {/* Always show toolbar if an image is loaded OR if we are in Chat mode */}
             {(currentImage || activeTab === 'chat') && (

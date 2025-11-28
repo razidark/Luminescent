@@ -1,4 +1,5 @@
 
+
 :root {
   /* Updated to Rainbow Theme Defaults to match context */
   --theme-gradient-from: #ff0000;
@@ -215,14 +216,18 @@ input[type="range"]::-moz-range-thumb {
         linear-gradient(-45deg, transparent 75%, #ffffff 75%);
     background-size: 20px 20px;
     background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    /* Increase contrast slightly for semi-transparent usage */
+    background-color: #e5e7eb;
 }
 .dark .checkerboard-bg {
     background-color: #0a0a0a;
     background-image:
-        linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%),
-        linear-gradient(-45deg, rgba(255,255,255,0.03) 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.03) 75%),
-        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.03) 75%);
+        linear-gradient(45deg, rgba(255,255,255,0.05) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(255,255,255,0.05) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.05) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.05) 75%);
+    /* Increase contrast slightly for semi-transparent usage */
+    background-color: #1a1a1a;
 }
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(10px); }
