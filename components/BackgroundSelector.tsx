@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -56,7 +57,7 @@ const BackgroundSelector: React.FC = () => {
                                     className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-left transition-colors ${background === id ? 'bg-theme-accent/50 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-black/10 dark:hover:bg-white/10'}`}
                                 >
                                     <Icon className="w-5 h-5 flex-shrink-0" />
-                                    <span className="truncate">{t(nameKey)}</span>
+                                    <span className="truncate">{t(nameKey as any)}</span>
                                 </button>
                             </li>
                         ))}

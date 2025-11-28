@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -42,7 +43,8 @@ const GeneratorView: React.FC<GeneratorViewProps> = ({
 
     const handleSave = async (imgSrc: string, index: number) => {
         const { addCreation } = await import('../utils/db');
-        const file = dataURLtoFile(imgSrc, 'creation.png');
+        const randomId = Math.floor(Math.random() * 1000000);
+        const file = dataURLtoFile(imgSrc, `creation-${randomId}.png`);
         await addCreation({
             type: 'image',
             blob: file,
@@ -94,7 +96,10 @@ const GeneratorView: React.FC<GeneratorViewProps> = ({
                                             <EditIcon className="w-6 h-6" />
                                         </button>
                                         <button
-                                            onClick={() => onDownload(dataURLtoFile(imgSrc, 'download.jpeg'))}
+                                            onClick={() => {
+                                                const randomId = Math.floor(Math.random() * 10000);
+                                                onDownload(dataURLtoFile(imgSrc, `generated-${randomId}.png`));
+                                            }}
                                             data-tooltip-id="app-tooltip"
                                             data-tooltip-content={t('download')}
                                             className="p-3 bg-white/10 text-gray-200 rounded-full transition-colors hover:bg-theme-accent-hover"

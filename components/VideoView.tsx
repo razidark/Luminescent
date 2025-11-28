@@ -103,7 +103,8 @@ const VideoView: React.FC<VideoViewProps> = ({
                                     onClick={async () => {
                                         const response = await fetch(generatedVideoUrl);
                                         const blob = await response.blob();
-                                        const file = new File([blob], `video-${Date.now()}.mp4`, { type: 'video/mp4' });
+                                        const randomId = Math.floor(Math.random() * 10000);
+                                        const file = new File([blob], `video-${Date.now()}-${randomId}.mp4`, { type: 'video/mp4' });
                                         onDownload(file);
                                     }}
                                     data-tooltip-id="app-tooltip"

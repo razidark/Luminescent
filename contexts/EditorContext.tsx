@@ -36,6 +36,7 @@ interface EditorContextState {
     handleApplyCrop: (completedCrop: { x: number; y: number; width: number; height: number; }, imageElement: HTMLImageElement) => Promise<void>;
     handleApplyExpand: (direction: 'top' | 'bottom' | 'left' | 'right', expansionPrompt: string) => Promise<void>;
     handleApplyUpscale: (scale: number) => Promise<void>;
+    handleApplyEnhance: (intensity: 'subtle' | 'medium' | 'strong') => Promise<void>;
     handleApplyRestore: (options: { fixDamage: boolean; improveClarity: boolean; colorize: boolean; enhanceFaces: boolean; }) => Promise<void>;
     handleRemoveBackground: () => Promise<void>;
     handleReplaceBackground: (backgroundPrompt: string) => Promise<void>;
@@ -56,6 +57,9 @@ interface EditorContextState {
     handleGenerateCreativeText: (type: 'quote' | 'caption' | 'pun') => Promise<{ text: string, color: string }>;
     handleDetectObjects: (label: string) => Promise<Array<{ ymin: number, xmin: number, ymax: number, xmax: number }>>;
     handleGenerateExpansionSuggestions: () => Promise<Array<{ direction: 'top' | 'bottom' | 'left' | 'right', prompt: string }>>;
+    handleApplySketch: (sketchDataUrl: string, prompt: string) => Promise<void>;
+    handleApplyFocus: (intensity: 'subtle' | 'medium' | 'strong') => Promise<void>;
+    handleMagicMask: (label: string) => Promise<string | null>;
 }
 
 const EditorContext = React.createContext<EditorContextState | undefined>(undefined);
@@ -300,6 +304,16 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children, curren
                 actionParams: { scale }
             },
             { scale: `${scale}` }
+        );
+    }, [currentImage, handleApiCall, t, setError]);
+
+    const handleApplyEnhance = React.useCallback(async (intensity: 'subtle' | 'medium' | 'strong') => {
+        if (!currentImage) { setError(t('errorNoImageToEdit')); return; }
+        await handleApiCall(
+            geminiService.generateEnhancedImage,
+            [currentImage, intensity],
+            'loadingEnhance',
+            { action: t('actionEnhance'), actionKey: 'actionEnhance' }
         );
     }, [currentImage, handleApiCall, t, setError]);
 
@@ -570,6 +584,21 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children, curren
         }
     }, [currentImage, handleApiError, t, setError]);
 
+    const handleMagicMask = React.useCallback(async (label: string): Promise<string | null> => {
+        if (!currentImage) {
+            setError(t('errorNoImageToEdit'));
+            return null;
+        }
+        setError(null);
+        // Do not set global isLoading to keep UI responsive for local indicators
+        try {
+            return await geminiService.generateSegmentationMask(currentImage, label);
+        } catch (err) {
+            handleApiError(err);
+            return null;
+        }
+    }, [currentImage, handleApiCall, t, setError]);
+
     const handleGenerateExpansionSuggestions = React.useCallback(async (): Promise<Array<{ direction: 'top' | 'bottom' | 'left' | 'right', prompt: string }>> => {
         if (!currentImage) {
             setError(t('errorNoImageToEdit'));
@@ -587,6 +616,61 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children, curren
             setIsLoading(false);
         }
     }, [currentImage, handleApiError, t, setError]);
+
+    const handleApplySketch = React.useCallback(async (sketchDataUrl: string, prompt: string) => {
+        if (!currentImage) { setError(t('errorNoImageToEdit')); return; }
+        
+        // Composite Sketch + Image before sending
+        // We can do this efficiently in an offscreen canvas or similar logic here
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const img = await new Promise<HTMLImageElement>(resolve => {
+            const i = new Image();
+            i.onload = () => resolve(i);
+            i.src = URL.createObjectURL(currentImage);
+        });
+        
+        const sketch = await new Promise<HTMLImageElement>(resolve => {
+            const i = new Image();
+            i.onload = () => resolve(i);
+            i.src = sketchDataUrl;
+        });
+
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        
+        // Draw original image
+        ctx.drawImage(img, 0, 0);
+        // Draw sketch overlay
+        ctx.drawImage(sketch, 0, 0, img.naturalWidth, img.naturalHeight);
+        
+        const compositedBlob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+        if (!compositedBlob) return;
+        const compositedFile = new File([compositedBlob], 'composited_sketch.png', { type: 'image/png' });
+
+        await handleApiCall(
+            geminiService.generateSketchImage,
+            [compositedFile, prompt],
+            'loadingGenerateImages',
+            {
+                action: t('actionSketch').replace('{prompt}', prompt),
+                actionKey: 'actionSketch',
+                actionParams: { prompt }
+            }
+        );
+    }, [currentImage, handleApiCall, t, setError]);
+
+    const handleApplyFocus = React.useCallback(async (intensity: 'subtle' | 'medium' | 'strong') => {
+        if (!currentImage) { setError(t('errorNoImageToEdit')); return; }
+        await handleApiCall(
+            geminiService.generateFocusImage,
+            [currentImage, intensity],
+            'loadingFilter', // Reusing loading message
+            { action: t('actionFocus'), actionKey: 'actionFocus' }
+        );
+    }, [currentImage, handleApiCall, t, setError]);
 
 
     // Use useMemo to stable the context value and prevent unnecessary re-renders of consumers
@@ -616,6 +700,7 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children, curren
         handleApplyCrop,
         handleApplyExpand,
         handleApplyUpscale,
+        handleApplyEnhance,
         handleApplyRestore,
         handleRemoveBackground,
         handleReplaceBackground,
@@ -636,6 +721,9 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children, curren
         handleGenerateCreativeText,
         handleDetectObjects,
         handleGenerateExpansionSuggestions,
+        handleApplySketch,
+        handleApplyFocus,
+        handleMagicMask,
     }), [
         currentImage,
         isLoading,
@@ -658,6 +746,7 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children, curren
         handleApplyCrop,
         handleApplyExpand,
         handleApplyUpscale,
+        handleApplyEnhance,
         handleApplyRestore,
         handleRemoveBackground,
         handleReplaceBackground,
@@ -677,7 +766,10 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children, curren
         handleGeneratePromptSuggestions,
         handleGenerateCreativeText,
         handleDetectObjects,
-        handleGenerateExpansionSuggestions
+        handleGenerateExpansionSuggestions,
+        handleApplySketch,
+        handleApplyFocus,
+        handleMagicMask
     ]);
 
     return (

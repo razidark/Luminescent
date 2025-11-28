@@ -10,6 +10,7 @@ export interface ZoomPanRef {
   zoomIn: () => void;
   zoomOut: () => void;
   reset: () => void;
+  centerView: () => void;
   zoomToActualSize: () => void;
   rotateLeft: () => void;
   rotateRight: () => void;
@@ -61,6 +62,8 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
     const { x, y, scale, rotation, flipX, flipY } = transform.current;
     
     contentRef.current.style.transition = animate ? 'transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)' : 'none';
+    // We translate the element, then rotate/scale it.
+    // Note: The element has origin-top-left style.
     contentRef.current.style.transform = `translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${scale}) scaleX(${flipX ? -1 : 1}) scaleY(${flipY ? -1 : 1})`;
     
     // Update cursor based on state
@@ -71,7 +74,7 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
     }
   }, []);
 
-  const updateZoom = (newScale: number, centerX: number, centerY: number) => {
+  const updateZoom = (newScale: number, centerX?: number, centerY?: number) => {
     const clampedScale = Math.max(minScale, Math.min(maxScale, newScale));
     const currentScale = transform.current.scale;
     
@@ -79,9 +82,13 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
     
     const rect = containerRef.current.getBoundingClientRect();
     
+    // If no center provided (e.g. via button), zoom towards center of viewport
+    const targetCenterX = centerX !== undefined ? centerX : rect.left + rect.width / 2;
+    const targetCenterY = centerY !== undefined ? centerY : rect.top + rect.height / 2;
+
     // Calculate mouse position relative to the container
-    const mouseRelX = centerX - rect.left;
-    const mouseRelY = centerY - rect.top;
+    const mouseRelX = targetCenterX - rect.left;
+    const mouseRelY = targetCenterY - rect.top;
 
     const pointOnContentX = (mouseRelX - transform.current.x) / currentScale;
     const pointOnContentY = (mouseRelY - transform.current.y) / currentScale;
@@ -90,61 +97,100 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
     const newY = mouseRelY - (pointOnContentY * clampedScale);
 
     transform.current = { ...transform.current, x: newX, y: newY, scale: clampedScale };
-    updateTransform(false);
+    updateTransform(true);
   };
+
+  // Helper to calculate the center offset for a given rotation and scale
+  const getCenterOffset = (scale: number, rotation: number) => {
+      const container = containerRef.current;
+      const image = imageRef.current;
+      if (!container || !image) return { x: 0, y: 0 };
+
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+      const imgW = image.naturalWidth * scale;
+      const imgH = image.naturalHeight * scale;
+
+      // Convert rotation to radians
+      const rad = (rotation * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+
+      // Center of image in local space (unrotated)
+      // Account for flipping which changes the coordinate space relative to origin
+      let cx = imgW / 2;
+      let cy = imgH / 2;
+      
+      if (transform.current.flipX) cx = -cx;
+      if (transform.current.flipY) cy = -cy;
+
+      // Rotate this center point around (0,0)
+      const rotatedCx = cx * cos - cy * sin;
+      const rotatedCy = cx * sin + cy * cos;
+
+      // We want this rotated center point to be at (containerWidth/2, containerHeight/2)
+      // So Translate + RotatedCenter = ContainerCenter
+      // Translate = ContainerCenter - RotatedCenter
+      
+      const tx = (containerWidth / 2) - rotatedCx;
+      const ty = (containerHeight / 2) - rotatedCy;
+
+      return { x: tx, y: ty };
+  };
+
+  const centerView = useCallback(() => {
+      const { scale, rotation } = transform.current;
+      const { x, y } = getCenterOffset(scale, rotation);
+      transform.current = { ...transform.current, x, y };
+      updateTransform(true);
+  }, [updateTransform]);
 
   const fitToScreen = useCallback(() => {
     const container = containerRef.current;
     const image = imageRef.current;
     if (!container || !image || !image.naturalWidth || !image.naturalHeight) return;
 
-    if (container.clientWidth === 0) {
-        requestAnimationFrame(fitToScreen);
+    // Safely handle 0 width/height (hidden container) to prevent infinite loops
+    if (container.clientWidth === 0 || container.clientHeight === 0) {
+        // We don't recurse here, resizing observer will handle it when size becomes available
         return;
     }
 
     const containerWidth = container.clientWidth - 40; // padding
     const containerHeight = container.clientHeight - 40;
-    const imageWidth = image.naturalWidth;
-    const imageHeight = image.naturalHeight;
     
-    // If rotated 90 or 270, swap width/height for fitting calculation
-    const rotation = Math.abs(transform.current.rotation % 360);
-    const isVertical = rotation === 90 || rotation === 270;
+    // Calculate rotated bounding box dimensions
+    const rotation = transform.current.rotation;
+    const rad = (rotation * Math.PI) / 180;
+    const w = image.naturalWidth;
+    const h = image.naturalHeight;
     
-    const effectiveImgWidth = isVertical ? imageHeight : imageWidth;
-    const effectiveImgHeight = isVertical ? imageWidth : imageHeight;
+    const absCos = Math.abs(Math.cos(rad));
+    const absSin = Math.abs(Math.sin(rad));
+    
+    const boundingW = w * absCos + h * absSin;
+    const boundingH = w * absSin + h * absCos;
 
-    const scaleX = containerWidth / effectiveImgWidth;
-    const scaleY = containerHeight / effectiveImgHeight;
+    const scaleX = containerWidth / boundingW;
+    const scaleY = containerHeight / boundingH;
     const newScale = Math.min(scaleX, scaleY, 1); 
 
-    // Reset position to center
-    const offsetX = (container.clientWidth - (imageWidth * newScale)) / 2;
-    const offsetY = (container.clientHeight - (imageHeight * newScale)) / 2;
+    // Calculate centering offset
+    const { x, y } = getCenterOffset(newScale, rotation);
 
-    transform.current = { ...transform.current, x: offsetX, y: offsetY, scale: newScale };
+    transform.current = { ...transform.current, x, y, scale: newScale };
     updateTransform(true);
   }, [imageRef, updateTransform]);
 
   const zoomToActualSize = useCallback(() => {
-        if (!containerRef.current || !imageRef.current) return;
-        
-        const { width, height, left, top } = containerRef.current.getBoundingClientRect();
-        const centerX = left + width / 2;
-        const centerY = top + height / 2;
-        
-        const currentScale = transform.current.scale;
-        const pointOnContentX = (centerX - left - transform.current.x) / currentScale;
-        const pointOnContentY = (centerY - top - transform.current.y) / currentScale;
-        
-        const targetScale = 1;
-        const newX = (centerX - left) - (pointOnContentX * targetScale);
-        const newY = (centerY - top) - (pointOnContentY * targetScale);
-
-        transform.current = { ...transform.current, x: newX, y: newY, scale: targetScale };
-        updateTransform(true);
-  }, [updateTransform, imageRef]);
+      // Set scale to 1 and center it
+      const { rotation } = transform.current;
+      const newScale = 1;
+      const { x, y } = getCenterOffset(newScale, rotation);
+      
+      transform.current = { ...transform.current, x, y, scale: newScale };
+      updateTransform(true);
+  }, [updateTransform]);
 
   useEffect(() => {
     const image = imageRef.current;
@@ -162,10 +208,17 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
         image.addEventListener('load', handleLoad, { once: true });
     }
     
-    window.addEventListener('resize', fitToScreen);
+    // Add ResizeObserver to handle container size changes (like sidebars opening/closing)
+    const resizeObserver = new ResizeObserver(() => {
+        requestAnimationFrame(() => fitToScreen());
+    });
+    
+    if (containerRef.current) {
+        resizeObserver.observe(containerRef.current);
+    }
 
     return () => {
-        window.removeEventListener('resize', fitToScreen);
+        resizeObserver.disconnect();
     };
   }, [imageRef, fitToScreen, imageUrl]);
 
@@ -307,23 +360,28 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
 
   useImperativeHandle(ref, () => ({
     zoomIn: () => {
-        if (!containerRef.current) return;
-        const { width, height, left, top } = containerRef.current.getBoundingClientRect();
-        updateZoom(transform.current.scale + zoomStep, left + width / 2, top + height / 2);
+        updateZoom(transform.current.scale + zoomStep);
     },
     zoomOut: () => {
-        if (!containerRef.current) return;
-        const { width, height, left, top } = containerRef.current.getBoundingClientRect();
-        updateZoom(transform.current.scale - zoomStep, left + width / 2, top + height / 2);
+        updateZoom(transform.current.scale - zoomStep);
     },
     reset: fitToScreen,
+    centerView: centerView,
     zoomToActualSize: zoomToActualSize,
     rotateLeft: () => {
         transform.current.rotation -= 90;
+        // Re-center view on rotation to prevent drifting off screen
+        // We don't fitToScreen, just keep scale but fix position
+        const { scale, rotation } = transform.current;
+        const { x, y } = getCenterOffset(scale, rotation);
+        transform.current = { ...transform.current, x, y };
         updateTransform(true);
     },
     rotateRight: () => {
         transform.current.rotation += 90;
+        const { scale, rotation } = transform.current;
+        const { x, y } = getCenterOffset(scale, rotation);
+        transform.current = { ...transform.current, x, y };
         updateTransform(true);
     },
     flipHorizontal: () => {
@@ -349,9 +407,16 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
+      {/* Using absolute + origin-top-left ensures transforms (translate, rotate, scale) compose predictably from (0,0) */}
       <div
         ref={contentRef}
-        className="w-full h-full flex justify-center items-center origin-top-left absolute top-0 left-0 will-change-transform"
+        className="absolute top-0 left-0 origin-top-left will-change-transform select-none"
+        style={{
+            width: 'auto',
+            height: 'auto',
+            maxWidth: 'none',
+            maxHeight: 'none'
+        }}
       >
         {children}
       </div>

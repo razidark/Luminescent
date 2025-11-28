@@ -1,4 +1,3 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -90,7 +89,7 @@ const handleApiResponse = (
     // 3. If no image, check for other reasons
     const finishReason = response.candidates?.[0]?.finishReason;
     if (finishReason && finishReason !== 'STOP') {
-        const errorMessage = `Image generation for ${context} stopped unexpectedly. Reason: ${finishReason}. This often relates to safety settings.`;
+        const errorMessage = `Image generation for ${context} stopped unexpectedly. Reason: ${finishReason}. This often relates to safety filters.`;
         console.error(errorMessage, { response });
         throw new Error(errorMessage);
     }
@@ -108,20 +107,23 @@ const handleApiResponse = (
 // Internal helper for generic image editing calls
 const _generateImageEdit = async (
     parts: ( { text: string } | { inlineData: { mimeType: string; data: string; } } )[],
-    context: string
+    context: string,
+    model: string = 'gemini-2.5-flash-image',
+    additionalConfig: any = {}
 ): Promise<string> => {
     return withRetry(async () => {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-        console.log(`Sending edit request for ${context}...`);
+        console.log(`Sending edit request for ${context} using ${model}...`);
+        
+        const config: any = {
+            responseModalities: [Modality.IMAGE],
+            ...additionalConfig
+        };
+
         const response: GenerateContentResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
+            model: model,
             contents: { parts },
-            config: {
-                // Per guidelines for gemini-2.5-flash-image: 
-                // - Must be an array with a single Modality.IMAGE element.
-                // - Do not add other configs.
-                responseModalities: [Modality.IMAGE],
-            },
+            config: config,
         });
         console.log(`Received response from model for ${context}.`, response);
         return handleApiResponse(response, context);
@@ -343,7 +345,7 @@ Output: Return ONLY the final expanded image. Do not return text.`;
 };
 
 /**
- * Upscales an image using generative AI.
+ * Upscales an image using generative AI (Gemini 3 Pro for high resolution).
  */
 export const generateUpscaledImage = async (
     originalImage: File,
@@ -351,48 +353,133 @@ export const generateUpscaledImage = async (
 ): Promise<string> => {
     console.log(`Starting AI upscale to ${scale}x`);
 
-    const dimensions = await new Promise<{ width: number, height: number }>((resolve, reject) => {
-        const objectUrl = URL.createObjectURL(originalImage);
-        const image = new Image();
-        image.onload = () => {
-            resolve({ width: image.naturalWidth, height: image.naturalHeight });
-            URL.revokeObjectURL(objectUrl);
-        };
-        image.onerror = () => {
-            reject(new Error('Could not read image dimensions.'));
-            URL.revokeObjectURL(objectUrl);
-        };
-        image.src = objectUrl;
-    });
-
-    const newWidth = dimensions.width * scale;
-    const newHeight = dimensions.height * scale;
+    // We use Gemini 3 Pro Image because it supports explicit resolution output ('2K', '4K').
+    // Flash Image doesn't support 'imageSize' config reliably.
     
+    let targetSize: '1K' | '2K' | '4K' = '4K'; // Default to max for best result
+    if (scale <= 2) targetSize = '2K';
+    if (scale >= 4) targetSize = '4K';
+
     const originalImagePart = await fileToGenerativePart(originalImage);
-    const prompt = `Task: AI Photo Upscaling.
-Instructions: Increase the resolution of the provided image by a factor of ${scale}. The final output must be a high-quality, photorealistic image with the exact dimensions: ${newWidth} pixels wide by ${newHeight} pixels high.
-Your primary goal is to enhance and add realistic detail. Focus on improving natural textures like skin, fabric, wood grain, and fine lines. The result should look as if it were captured with a higher-resolution camera.
-Do not alter the content, composition, or colors of the original image.
+    const prompt = `Task: High-Fidelity Image Upscaling.
+Instructions: The user has provided an image. Re-generate this image at a much higher resolution (${targetSize} quality).
+Crucially, you must preserve the exact content, composition, colors, and identity of the original image. Do not hallucinate new objects or change the scene.
+Focus on enhancing fine details, sharpening edges, and removing artifacts (like JPEG compression or noise) to make it look like a pristine, high-resolution photograph.
 Output: Return ONLY the final upscaled image. Do not return text.`;
     const textPart = { text: prompt };
 
-    return _generateImageEdit([originalImagePart, textPart], 'upscale');
+    // Note: 'gemini-3-pro-image-preview' supports imageSize in config
+    return _generateImageEdit([originalImagePart, textPart], 'upscale', 'gemini-3-pro-image-preview', {
+        imageConfig: { imageSize: targetSize }
+    });
 };
 
 /**
- * Removes the background from an image using generative AI.
+ * Enhances an image's quality and details using generative AI.
+ */
+export const generateEnhancedImage = async (
+    originalImage: File,
+    intensity: 'subtle' | 'medium' | 'strong'
+): Promise<string> => {
+    console.log(`Starting AI enhancement (${intensity})...`);
+    const originalImagePart = await fileToGenerativePart(originalImage);
+    
+    let prompt = "Task: Enhance Image Quality.\n";
+    if (intensity === 'subtle') {
+        prompt += "Apply subtle improvements to clarity and lighting. Reduce noise slightly. Keep the look very natural.";
+    } else if (intensity === 'medium') {
+        prompt += "Enhance overall details, sharpness, and lighting. Balance colors and contrast for a professional photograph look.";
+    } else {
+        prompt += "Strongly enhance details, texture, and clarity. Make the image pop with high definition sharpness and vibrant (but realistic) lighting.";
+    }
+    prompt += "\nOutput: Return ONLY the final enhanced image. Do not change the content or composition.";
+
+    const textPart = { text: prompt };
+    return _generateImageEdit([originalImagePart, textPart], 'enhance');
+};
+
+/**
+ * Removes the background from an image using a mask-based approach for true transparency.
  */
 export const generateRemovedBackgroundImage = async (
     originalImage: File,
 ): Promise<string> => {
-    console.log('Starting AI background removal');
+    console.log('Starting AI background removal (Mask Composition)...');
+    
+    // 1. Generate the Mask
     const originalImagePart = await fileToGenerativePart(originalImage);
-    const prompt = `You are an expert photo editor AI. Your task is to remove the background from the provided image.
-The main subject should be perfectly preserved with clean edges. The background should be made transparent.
-Output: Return ONLY the final image with a transparent background. Do not return text.`;
-    const textPart = { text: prompt };
-
-    return _generateImageEdit([originalImagePart, textPart], 'background removal');
+    const maskPrompt = `Task: Generate a precise Binary Segmentation Mask.
+Instructions:
+- Identify the main subject(s) of the image.
+- Create a high-contrast mask where the SUBJECT is pure WHITE (RGB 255,255,255).
+- The BACKGROUND must be pure BLACK (RGB 0,0,0).
+- Ensure sharp, accurate edges around hair, fur, and clothing.
+- Do not change the composition. The mask must align perfectly with the original image.
+Output: Return ONLY the mask image.`;
+    
+    // We use the image model to generate the mask
+    const maskBase64 = await _generateImageEdit([originalImagePart, { text: maskPrompt }], 'bg-removal-mask');
+    
+    // 2. Composite the Mask + Original Image in the browser to get Transparency
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const mask = new Image();
+        
+        let imgLoaded = false;
+        let maskLoaded = false;
+        
+        const processComposition = () => {
+            if (!imgLoaded || !maskLoaded) return;
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                reject(new Error("Could not get canvas context"));
+                return;
+            }
+            
+            // Draw original image
+            ctx.drawImage(img, 0, 0);
+            
+            // Get image data
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imgData.data;
+            
+            // Draw mask to a temp canvas to read its pixels
+            const maskCanvas = document.createElement('canvas');
+            maskCanvas.width = canvas.width;
+            maskCanvas.height = canvas.height;
+            const maskCtx = maskCanvas.getContext('2d');
+            if (!maskCtx) { reject(new Error("No mask context")); return; }
+            
+            maskCtx.drawImage(mask, 0, 0, canvas.width, canvas.height);
+            const maskData = maskCtx.getImageData(0, 0, canvas.width, canvas.height).data;
+            
+            // Apply mask to alpha channel
+            // Mask is White (Subject) / Black (Bg). 
+            // We want transparency where mask is black.
+            for (let i = 0; i < data.length; i += 4) {
+                // Use the red channel of the mask as brightness (since it's B&W)
+                const maskVal = maskData[i]; 
+                // Simple threshold or soft edge? 
+                // Let's use the value directly for smooth anti-aliased edges if the model outputs grayscale edges.
+                data[i + 3] = maskVal; 
+            }
+            
+            ctx.putImageData(imgData, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+        };
+        
+        img.onload = () => { imgLoaded = true; processComposition(); };
+        img.onerror = () => reject(new Error("Failed to load original image for composition"));
+        img.src = URL.createObjectURL(originalImage);
+        
+        mask.onload = () => { maskLoaded = true; processComposition(); };
+        mask.onerror = () => reject(new Error("Failed to load mask image for composition"));
+        mask.src = maskBase64;
+    });
 };
 
 /**
@@ -1252,6 +1339,79 @@ export const detectObjects = async (
         }
         return [];
     });
+};
+
+export const generateSegmentationMask = async (
+    image: File,
+    label: string
+): Promise<string> => {
+    console.log(`Generating segmentation mask for: ${label}`);
+    const imagePart = await fileToGenerativePart(image);
+    
+    const prompt = `Create a high-contrast binary mask image for the object: "${label}".
+    Instructions:
+    - The object ("${label}") must be pure WHITE.
+    - The background and everything else must be pure BLACK.
+    - Ensure clear, precise edges.
+    - The output should be a solid silhouette of the object.
+    
+    Output: Return ONLY the mask image.`;
+
+    const textPart = { text: prompt };
+    
+    // We use the image model to generate the mask visually
+    return _generateImageEdit([imagePart, textPart], 'segmentation mask');
+};
+
+export const generateSketchImage = async (
+    compositedImage: File,
+    prompt: string,
+): Promise<string> => {
+    console.log('Starting Sketch-to-Image generation:', prompt);
+    const imagePart = await fileToGenerativePart(compositedImage);
+    
+    const fullPrompt = `You are an expert digital artist.
+User Task: "Transform the rough sketch on this image into a realistic, high-quality artwork."
+User Prompt: "${prompt}"
+
+Instructions:
+- The provided image contains a rough, colored sketch overlaid on a base image (or a blank canvas).
+- Your goal is to interpret the sketch lines and colors as a guide for the structure and composition of the final image.
+- The final output should be photorealistic (unless the prompt specifies a different style) and high resolution.
+- Blend the sketched elements seamlessly into the scene if there is a background.
+- Maintain the overall composition defined by the sketch.
+
+Output: Return ONLY the final generated image. Do not return text.`;
+
+    const textPart = { text: fullPrompt };
+    return _generateImageEdit([imagePart, textPart], 'sketch-to-image');
+};
+
+export const generateFocusImage = async (
+    image: File,
+    intensity: 'subtle' | 'medium' | 'strong',
+): Promise<string> => {
+    console.log(`Starting AI Focus (Blur) with intensity: ${intensity}`);
+    const imagePart = await fileToGenerativePart(image);
+    
+    let desc = "";
+    switch(intensity) {
+        case 'subtle': desc = "Apply a subtle, natural bokeh effect to the background, keeping the main subject perfectly sharp."; break;
+        case 'medium': desc = "Apply a standard portrait mode effect with noticeable background blur to separate the subject."; break;
+        case 'strong': desc = "Apply a strong, creamy bokeh blur to the background for a dramatic depth-of-field effect."; break;
+    }
+
+    const prompt = `You are an expert photo editor.
+Task: Simulate a professional camera lens depth-of-field effect (Bokeh).
+${desc}
+- Identify the main subject(s) of the photo and keep them completely in focus and sharp.
+- Blur ONLY the background and foreground elements that are not the main subject.
+- The transition between sharp and blurred areas should be natural and follow the depth of the scene.
+
+Output: Return ONLY the final image. Do not return text.`;
+
+    const textPart = { text: prompt };
+    return _generateImageEdit([imagePart, textPart], 'focus blur');
 };
 
 

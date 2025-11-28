@@ -8,12 +8,12 @@
 import * as React from 'react';
 import { Tooltip } from 'react-tooltip';
 import * as geminiService from './services/geminiService';
-import { dataURLtoFile } from './utils/helpers';
+import { dataURLtoFile, processImageWithWorker } from './utils/helpers';
 import Header from './components/Header';
 import Spinner from './components/Spinner';
 import HistoryPanel from './components/HistoryPanel';
 import Footer from './components/Footer';
-import { HistoryIcon, UploadIcon, QuestionMarkIcon, ArrowLeftFromLineIcon, ArrowRightFromLineIcon, ChatIcon } from './components/icons';
+import { UploadIcon } from './components/icons';
 import StartScreen from './components/StartScreen';
 import NebulaBackground from './components/NebulaBackground';
 import CircuitBackground from './components/CircuitBackground';
@@ -21,6 +21,7 @@ import GridBackground from './components/GridBackground';
 import MatrixBackground from './components/MatrixBackground';
 import WikiModal from './components/WikiModal';
 import ShortcutsModal from './components/ShortcutsModal';
+import DownloadModal from './components/DownloadModal';
 import { useLanguage } from './contexts/LanguageContext';
 import { useTheme } from './contexts/ThemeContext';
 import { useBackground } from './contexts/BackgroundContext';
@@ -80,6 +81,11 @@ const App: React.FC = () => {
   const [isPanelCollapsed, setIsPanelCollapsed] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   
+  // Download Modal State
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = React.useState(false);
+  const [pendingDownloadFile, setPendingDownloadFile] = React.useState<File | null>(null);
+  const [isProcessingDownload, setIsProcessingDownload] = React.useState(false);
+
   // State for Generator and Video views (which aren't in the EditorContext)
   const [isGenerating, setIsGenerating] = React.useState<boolean>(false);
   const [loadingMessage, setLoadingMessage] = React.useState<string>('');
@@ -228,21 +234,58 @@ const App: React.FC = () => {
     fileInputRef.current?.click();
   }, []);
 
-  const handleDownload = React.useCallback(async (file?: File) => {
+  const handleDownload = React.useCallback((file?: File) => {
       const fileToDownload = file || currentImage;
       if (!fileToDownload) return;
-      const url = URL.createObjectURL(fileToDownload);
-      const link = document.createElement('a');
-      link.href = url;
       
-      const extension = fileToDownload.type.startsWith('video/') ? 'mp4' : 'png';
-      link.download = `luminescence-export-${Date.now()}.${extension}`;
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      if (fileToDownload.type.startsWith('video/')) {
+          // Direct download for videos
+          const url = URL.createObjectURL(fileToDownload);
+          const link = document.createElement('a');
+          link.href = url;
+          // Append random number to video filename
+          link.download = `luminescence-video-${Date.now()}-${Math.floor(Math.random() * 10000)}.mp4`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+      } else {
+          // Open modal for images
+          setPendingDownloadFile(fileToDownload);
+          setIsDownloadModalOpen(true);
+      }
   }, [currentImage]);
+  
+  const handleDownloadConfirm = async (filename: string, format: 'png' | 'jpeg' | 'webp', quality: number) => {
+      if (!pendingDownloadFile) return;
+      setIsProcessingDownload(true);
+      
+      try {
+          const mimeType = `image/${format}` as 'image/png' | 'image/jpeg' | 'image/webp';
+          const finalFile = await processImageWithWorker('CONVERT', {
+              file: pendingDownloadFile,
+              mimeType: mimeType,
+              quality: quality,
+              filename: `${filename}.${format === 'jpeg' ? 'jpg' : format}`
+          });
+          
+          const url = URL.createObjectURL(finalFile);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = finalFile.name;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          setIsDownloadModalOpen(false);
+      } catch (e) {
+          console.error("Export failed", e);
+          setError("Failed to process download. Please try a different format.");
+      } finally {
+          setIsProcessingDownload(false);
+          setPendingDownloadFile(null);
+      }
+  };
   
   const handleSaveToCreations = async (file?: File): Promise<boolean> => {
     const fileToSave = file || currentImage;
@@ -354,6 +397,9 @@ const App: React.FC = () => {
     };
   }, [handleUploadAndNavigate]);
 
+  // Editor mode detection to maximize workspace
+  const isEditorMode = !!currentImage && activeTab !== 'chat' && activeTab !== 'gallery' && activeTab !== 'video' && activeTab !== 'generate';
+
   const renderContent = () => {
     if (!isHistoryInitialized) {
         return (
@@ -455,24 +501,37 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="relative isolate bg-transparent text-gray-900 dark:text-gray-100 min-h-screen flex flex-col">
+    // Updated: h-screen instead of min-h-screen to lock viewport
+    <div className="relative isolate bg-transparent text-gray-900 dark:text-gray-100 h-screen flex flex-col overflow-hidden">
       {renderBackground()}
-      <Header onUploadClick={handleUploadNew} onWikiClick={() => setIsWikiOpen(true)} onGoHome={handleGoHome} />
-      <div className="flex flex-grow relative">
-        <main className={`relative z-10 p-4 md:p-8 flex items-start gap-6 flex-grow w-full`}>
-          <div className="flex-grow flex flex-col gap-4 w-full">
+      <Header 
+        onUploadClick={handleUploadNew} 
+        onWikiClick={() => setIsWikiOpen(true)} 
+        onGoHome={handleGoHome} 
+        onChatClick={() => setActiveTab('chat')}
+        onShortcutsClick={() => setIsShortcutsModalOpen(true)}
+        onHistoryClick={() => setIsHistoryPanelOpen(!isHistoryPanelOpen)}
+        isHistoryAvailable={history.length > 0 && activeTab !== 'video' && activeTab !== 'gallery' && activeTab !== 'chat'}
+      />
+      <div className="flex flex-grow relative overflow-hidden min-h-0">
+        {/* If in Editor Mode, we use p-4 to give a small "margin" around the card, but ensure it fits the screen height */}
+        <main className={`relative z-10 flex items-start flex-grow w-full h-full transition-all duration-300 min-h-0 ${isEditorMode ? 'p-4 md:p-6 gap-4' : 'p-4 md:p-8 gap-6'}`}>
+          <div className="flex-grow flex flex-col gap-0 w-full h-full min-h-0">
              {/* Always show toolbar if an image is loaded OR if we are in Chat mode */}
             {(currentImage || activeTab === 'chat') && (
-                <Toolbar 
-                    activeTab={activeTab}
-                    setActiveTab={setActiveTab}
-                />
+                <div className="flex-shrink-0 mb-2">
+                    <Toolbar 
+                        activeTab={activeTab}
+                        setActiveTab={setActiveTab}
+                    />
+                </div>
             )}
-            <div className="flex-grow flex w-full">
+            {/* Content Container: Removed h-full to let flex-grow handle resizing properly within parent */}
+            <div className="flex-grow flex w-full overflow-hidden relative min-h-0">
                 {renderContent()}
             </div>
           </div>
-          {isHistoryPanelOpen && history.length > 0 && activeTab !== 'video' && activeTab !== 'gallery' && activeTab !== 'chat' && (
+          {isHistoryPanelOpen && history.length > 0 && activeTab !== 'video' && activeTab !== 'gallery' && activeTab !== 'chat' && !isEditorMode && (
               <HistoryPanel 
                   history={history}
                   currentIndex={historyIndex}
@@ -482,59 +541,10 @@ const App: React.FC = () => {
           )}
         </main>
       </div>
-      {/* Positioned at bottom-left to avoid overlapping right sidebar panels */}
-      <div className="fixed bottom-4 left-4 z-40 flex flex-col gap-2 items-start">
-        <div className="p-2 bg-gray-200/60 dark:bg-gray-800/60 border border-gray-300 dark:border-gray-700 backdrop-blur-md rounded-full shadow-2xl flex flex-col gap-2">
-            {activeTab !== 'chat' && (
-                 <button
-                    onClick={() => setActiveTab('chat')}
-                    data-tooltip-id="app-tooltip"
-                    data-tooltip-content="AI Assistant"
-                    className="p-3 transition-all rounded-full bg-theme-gradient text-white shadow-lg hover:shadow-theme-accent/50 active:scale-90"
-                >
-                    <ChatIcon className="w-6 h-6" />
-                </button>
-            )}
-            <button
-                onClick={() => setIsShortcutsModalOpen(true)}
-                data-tooltip-id="app-tooltip"
-                data-tooltip-content={t('showShortcuts')}
-                className="p-3 transition-all rounded-full hover:bg-gray-300/80 dark:hover:bg-theme-accent-hover active:scale-90"
-            >
-                <QuestionMarkIcon className="w-6 h-6" />
-            </button>
-            {currentImage && activeTab !== 'chat' && (
-                <>
-                     <button
-                        onClick={handleUploadNew}
-                        data-tooltip-id="app-tooltip"
-                        data-tooltip-content={t('uploadDifferentImage')}
-                        className="p-3 transition-all rounded-full hover:bg-gray-300/80 dark:hover:bg-theme-accent-hover active:scale-90"
-                    >
-                        <UploadIcon className="w-6 h-6" />
-                    </button>
-                    <button
-                        onClick={() => setIsPanelCollapsed(!isPanelCollapsed)}
-                        data-tooltip-id="app-tooltip"
-                        data-tooltip-content={isPanelCollapsed ? t('expandPanel') : t('collapsePanel')}
-                        className="p-3 transition-all rounded-full hover:bg-gray-300/80 dark:hover:bg-theme-accent-hover active:scale-90 hidden lg:block"
-                    >
-                        {isPanelCollapsed ? <ArrowRightFromLineIcon className="w-6 h-6" /> : <ArrowLeftFromLineIcon className="w-6 h-6" />}
-                    </button>
-                </>
-            )}
-            {history.length > 0 && activeTab !== 'video' && activeTab !== 'gallery' && activeTab !== 'chat' && (
-                <button
-                    onClick={() => setIsHistoryPanelOpen(!isHistoryPanelOpen)}
-                    data-tooltip-id="app-tooltip"
-                    data-tooltip-content={t('showHistory')}
-                    className={`p-3 rounded-full transition-all active:scale-90 ${isHistoryPanelOpen ? 'bg-theme-accent text-white' : 'hover:bg-gray-300/80 dark:hover:bg-white/20'}`}
-                >
-                    <HistoryIcon className="w-6 h-6" />
-                </button>
-            )}
-        </div>
-      </div>
+      
+      {/* Footer is typically hidden in full-screen editor mode to save space, or kept minimal */}
+      {!isEditorMode && <Footer />}
+
        <input
         ref={fileInputRef}
         type="file"
@@ -542,9 +552,15 @@ const App: React.FC = () => {
         accept="image/*"
         onChange={handleFileSelected}
       />
-      <Footer />
+      
       <WikiModal isOpen={isWikiOpen} onClose={() => setIsWikiOpen(false)} />
       <ShortcutsModal isOpen={isShortcutsModalOpen} onClose={() => setIsShortcutsModalOpen(false)} />
+      <DownloadModal 
+        isOpen={isDownloadModalOpen} 
+        onClose={() => { setIsDownloadModalOpen(false); setPendingDownloadFile(null); }} 
+        onConfirm={handleDownloadConfirm}
+        isProcessing={isProcessingDownload}
+      />
       <Tooltip id="app-tooltip" className="app-tooltip" />
       
       {isGlobalDragging && (

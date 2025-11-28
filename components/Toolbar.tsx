@@ -7,7 +7,7 @@
 import * as React from 'react';
 import { type Tab } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
-import { PaintBrushIcon, CropIcon, ExpandIcon, AdjustIcon, FilterIcon, UpscaleIcon, RemoveBgIcon, CardIcon, TextIcon, MagicWandIcon, MemeIcon, ProductIcon, RetouchIcon, AddProductIcon, PaletteIcon, StyleTransferIcon, CaptionIcon, VariationsIcon, ChatIcon } from './icons';
+import { PaintBrushIcon, CropIcon, ExpandIcon, AdjustIcon, FilterIcon, UpscaleIcon, RemoveBgIcon, CardIcon, TextIcon, MagicWandIcon, MemeIcon, ProductIcon, RetouchIcon, AddProductIcon, PaletteIcon, StyleTransferIcon, CaptionIcon, VariationsIcon, ChatIcon, GifIcon, EnhanceIcon, PencilIcon, FocusIcon } from './icons';
 
 interface ToolbarProps {
   activeTab: Tab | null;
@@ -20,7 +20,10 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeTab, setActiveTab }) => {
 
   const tabs: {id: Tab, name: string, icon: React.ReactNode}[] = [
     {id: 'chat', name: 'Assistant', icon: <ChatIcon />},
+    {id: 'enhance', name: t('toolEnhance'), icon: <EnhanceIcon />},
+    {id: 'focus', name: t('toolFocus'), icon: <FocusIcon />},
     {id: 'erase', name: t('toolErase'), icon: <PaintBrushIcon />},
+    {id: 'sketch', name: t('toolSketch'), icon: <PencilIcon />},
     {id: 'retouch', name: t('toolRetouch'), icon: <RetouchIcon />},
     {id: 'restore', name: t('toolRestore'), icon: <MagicWandIcon />},
     {id: 'background', name: t('toolBackground'), icon: <RemoveBgIcon />},
@@ -38,6 +41,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeTab, setActiveTab }) => {
     {id: 'captions', name: t('toolCaptions'), icon: <CaptionIcon />},
     {id: 'memeify', name: t('toolMemeify'), icon: <MemeIcon />},
     {id: 'cardify', name: t('toolCardify'), icon: <CardIcon />},
+    {id: 'gif', name: 'GIF Maker', icon: <GifIcon />},
   ];
   
   const handleWheel = (e: React.WheelEvent) => {

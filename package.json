@@ -13,7 +13,8 @@
     "react-dom": "^19.1.0",
     "@google/genai": "^1.10.0",
     "react-image-crop": "^11.0.6",
-    "react-tooltip": "^5.27.1"
+    "react-tooltip": "^5.27.1",
+    "gifshot": "0.4.5"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

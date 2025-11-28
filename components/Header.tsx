@@ -1,10 +1,10 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
 import * as React from 'react';
-// FIX: Imported the missing `BellIcon` to resolve a module export error.
-import { LuminescenceIcon, UploadIcon, BookIcon } from './icons';
+import { LuminescenceIcon, UploadIcon, BookIcon, ChatIcon, QuestionMarkIcon, HistoryIcon } from './icons';
 import AnalogClock from './AnalogClock';
 import { useLanguage } from '../contexts/LanguageContext';
 import ThemeSelector from './ThemeSelector';
@@ -42,7 +42,7 @@ const DigitalClock: React.FC = () => {
     };
 
     return (
-        <div className="text-right hidden lg:block">
+        <div className="text-right hidden xl:block">
             <div className="font-mono text-lg font-bold text-gray-800 dark:text-gray-200 tracking-wider leading-none">
                 {formatTime(currentTime)}
             </div>
@@ -57,48 +57,83 @@ interface HeaderProps {
     onUploadClick: () => void;
     onWikiClick: () => void;
     onGoHome: () => void;
+    onChatClick?: () => void;
+    onShortcutsClick?: () => void;
+    onHistoryClick?: () => void;
+    isHistoryAvailable?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ onUploadClick, onWikiClick, onGoHome }) => {
+const Header: React.FC<HeaderProps> = ({ 
+    onUploadClick, 
+    onWikiClick, 
+    onGoHome,
+    onChatClick,
+    onShortcutsClick,
+    onHistoryClick,
+    isHistoryAvailable
+}) => {
   const { t } = useLanguage();
-  const [isOnline, setIsOnline] = React.useState(navigator.onLine);
-
-  React.useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
 
   return (
     <header className="w-full py-3 px-4 md:px-8 glass sticky top-0 z-50 border-b-0 shadow-sm transition-all duration-300">
       <div className="flex items-center justify-between max-w-[1920px] mx-auto">
-        <div className="flex-1 flex justify-start">
+        <div className="flex-1 flex justify-start items-center gap-4">
             <AnalogClock className="hidden sm:block" />
+             {/* Navigation Controls moved to Header */}
+             <div className="flex items-center gap-2">
+                {onChatClick && (
+                    <button
+                        onClick={onChatClick}
+                        className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full transition-colors"
+                        data-tooltip-id="app-tooltip"
+                        data-tooltip-content="AI Assistant"
+                    >
+                        <ChatIcon className="w-5 h-5" />
+                    </button>
+                )}
+                {onShortcutsClick && (
+                    <button
+                        onClick={onShortcutsClick}
+                        className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full transition-colors"
+                        data-tooltip-id="app-tooltip"
+                        data-tooltip-content={t('showShortcuts')}
+                    >
+                        <QuestionMarkIcon className="w-5 h-5" />
+                    </button>
+                )}
+                {isHistoryAvailable && onHistoryClick && (
+                    <button
+                        onClick={onHistoryClick}
+                        className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full transition-colors"
+                        data-tooltip-id="app-tooltip"
+                        data-tooltip-content={t('showHistory')}
+                    >
+                        <HistoryIcon className="w-5 h-5" />
+                    </button>
+                )}
+            </div>
         </div>
+        
         <div className="flex flex-col items-center justify-center">
             <button 
                 onClick={onGoHome} 
+                data-tooltip-id="app-tooltip"
+                data-tooltip-content={t('goHome')}
                 className="flex items-center gap-3 group focus:outline-none focus-visible:ring-2 ring-offset-2 ring-offset-white dark:ring-offset-black ring-theme-accent rounded-xl p-2 transition-all active:scale-95 hover:bg-white/10 dark:hover:bg-white/5"
             >
               <div className="relative">
                   <div className="absolute inset-0 bg-theme-accent/50 blur-lg rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse"></div>
                   <LuminescenceIcon className="w-8 h-8 relative z-10 group-hover:scale-110 transition-transform duration-300" />
               </div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-theme-gradient group-hover:brightness-110 transition-all"
+              <h1 className="text-2xl font-extrabold tracking-tight text-theme-gradient group-hover:brightness-110 transition-all hidden md:block"
                   style={{ backgroundSize: '200% 200%', animation: 'animated-gradient-text 5s ease infinite' }}>
                 Luminescent
               </h1>
             </button>
-            <div className="w-full max-w-[120px] h-0.5 bg-theme-gradient mt-1 rounded-full opacity-80 blur-[1px]"
+            <div className="w-full max-w-[120px] h-0.5 bg-theme-gradient mt-1 rounded-full opacity-80 blur-[1px] hidden md:block"
                 style={{ backgroundSize: '200% 200%', animation: 'animated-gradient-text 5s ease infinite reverse' }} />
         </div>
+        
         <div className="flex-1 flex justify-end items-center gap-4">
             
             <DigitalClock />

@@ -6,9 +6,10 @@
 
 import * as React from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { SparkleIcon, MagicWandIcon, UndoIcon } from './icons';
+import { SparkleIcon, MagicWandIcon, UndoIcon, RedoIcon, EraserIcon, PaintBrushIcon, InvertIcon } from './icons';
 import RangeSlider from './RangeSlider';
 import { enhancePrompt } from '../services/geminiService';
+import { useEditor } from '../contexts/EditorContext';
 
 interface ErasePanelProps {
   prompt: string;
@@ -17,28 +18,27 @@ interface ErasePanelProps {
   setBrushSize: (size: number) => void;
   onGenerate: () => void;
   onClear: () => void;
-  onUndo: () => void; // Added onUndo prop
+  onUndo: () => void;
+  onRedo?: () => void;
+  onInvert?: () => void;
   isLoading: boolean;
   onGenerateSuggestions: () => Promise<string[]>;
   onAutoSelect: (label: string) => Promise<void>;
+  onMagicMaskClick: (label: string) => Promise<void>;
+  tool: 'brush' | 'eraser';
+  setTool: (tool: 'brush' | 'eraser') => void;
 }
 
-// Updated signature to accept onUndo, but needs to be passed from EditorView first. 
-// For now, I will cast props or add optional if interface mismatch in EditorView.
-// Wait, I need to update EditorView to pass this prop.
-// Actually, EditorView passes props blindly to components often, but TypeScript will complain.
-// I'll assume EditorView will be updated or I'll update it in this response too if needed. 
-// Wait, the prompt asked for specific files. I will stick to the requested updates.
-// I will update `EditorView.tsx` in a separate block if needed, but let's check `components/MagicErasePanel.tsx` content.
-
-const ErasePanel: React.FC<ErasePanelProps> = ({ prompt, setPrompt, brushSize, setBrushSize, onGenerate, onClear, onUndo, isLoading, onGenerateSuggestions, onAutoSelect }) => {
+const ErasePanel: React.FC<ErasePanelProps> = ({ prompt, setPrompt, brushSize, setBrushSize, onGenerate, onClear, onUndo, onRedo, onInvert, isLoading, onGenerateSuggestions, onAutoSelect, onMagicMaskClick, tool, setTool }) => {
   const { t } = useLanguage();
+  const { handleMagicMask } = useEditor();
   const [suggestions, setSuggestions] = React.useState<string[]>([]);
   const [isSuggesting, setIsSuggesting] = React.useState(false);
   const [isEnhancing, setIsEnhancing] = React.useState(false);
   const [isListening, setIsListening] = React.useState(false);
   const [autoSelectLabel, setAutoSelectLabel] = React.useState('');
   const [isDetecting, setIsDetecting] = React.useState(false);
+  const [isMasking, setIsMasking] = React.useState(false);
 
   const handleSuggest = async () => {
     setIsSuggesting(true);
@@ -99,6 +99,16 @@ const ErasePanel: React.FC<ErasePanelProps> = ({ prompt, setPrompt, brushSize, s
     } finally {
       setIsDetecting(false);
     }
+  };
+
+  const handleMagicMaskClick = async () => {
+      if (!autoSelectLabel.trim()) return;
+      setIsMasking(true);
+      try {
+          await onMagicMaskClick(autoSelectLabel);
+      } finally {
+          setIsMasking(false);
+      }
   };
 
   return (
@@ -164,6 +174,24 @@ const ErasePanel: React.FC<ErasePanelProps> = ({ prompt, setPrompt, brushSize, s
       )}
 
       <div className="bg-gray-100 dark:bg-white/5 p-4 rounded-xl border border-gray-200 dark:border-white/10">
+         
+         <div className="flex gap-2 mb-4 bg-white dark:bg-white/5 p-1 rounded-lg">
+            <button
+                onClick={() => setTool('brush')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-all text-sm font-bold ${tool === 'brush' ? 'bg-theme-accent text-white shadow-md' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10'}`}
+            >
+                <PaintBrushIcon className="w-4 h-4" />
+                Draw
+            </button>
+            <button
+                onClick={() => setTool('eraser')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-all text-sm font-bold ${tool === 'eraser' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-md' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10'}`}
+            >
+                <EraserIcon className="w-4 h-4" />
+                Erase
+            </button>
+         </div>
+
          <div className="mb-4">
             <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 block">{t('smartSelectTitle')}</label>
             <div className="flex gap-2">
@@ -173,14 +201,23 @@ const ErasePanel: React.FC<ErasePanelProps> = ({ prompt, setPrompt, brushSize, s
                     onChange={(e) => setAutoSelectLabel(e.target.value)}
                     placeholder={t('smartSelectPlaceholder')}
                     className="flex-grow bg-white dark:bg-gray-800/50 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-theme-accent"
-                    disabled={isLoading || isDetecting}
+                    disabled={isLoading || isDetecting || isMasking}
                 />
+            </div>
+            <div className="flex gap-2 mt-2">
                 <button 
                     onClick={handleAutoSelectClick}
-                    disabled={isLoading || isDetecting || !autoSelectLabel.trim()}
-                    className="px-4 py-2 bg-theme-accent text-white rounded-lg text-sm font-bold disabled:opacity-50"
+                    disabled={isLoading || isDetecting || isMasking || !autoSelectLabel.trim()}
+                    className="flex-1 px-3 py-2 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-lg text-xs font-bold disabled:opacity-50 transition-colors hover:bg-gray-300 dark:hover:bg-white/20"
                 >
-                    {isDetecting ? t('detecting') : t('smartSelectBtn')}
+                    {isDetecting ? t('detecting') : t('smartSelectBox')}
+                </button>
+                 <button 
+                    onClick={handleMagicMaskClick}
+                    disabled={isLoading || isDetecting || isMasking || !autoSelectLabel.trim()}
+                    className="flex-1 px-3 py-2 bg-theme-gradient text-white rounded-lg text-xs font-bold disabled:opacity-50 shadow-md hover:shadow-lg transition-all"
+                >
+                    {isMasking ? t('masking') : t('smartSelectPrecise')}
                 </button>
             </div>
          </div>
@@ -199,10 +236,33 @@ const ErasePanel: React.FC<ErasePanelProps> = ({ prompt, setPrompt, brushSize, s
             onClick={onUndo}
             className="flex-shrink-0 p-3.5 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-xl transition-all hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 disabled:opacity-50"
             disabled={isLoading}
-            title={t('undo')}
+            data-tooltip-id="app-tooltip"
+            data-tooltip-content={t('undo')}
         >
             <UndoIcon className="w-5 h-5" />
         </button>
+        {onRedo && (
+            <button
+                onClick={onRedo}
+                className="flex-shrink-0 p-3.5 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-xl transition-all hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 disabled:opacity-50"
+                disabled={isLoading}
+                data-tooltip-id="app-tooltip"
+                data-tooltip-content={t('redo')}
+            >
+                <RedoIcon className="w-5 h-5" />
+            </button>
+        )}
+        {onInvert && (
+            <button
+                onClick={onInvert}
+                className="flex-shrink-0 p-3.5 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-xl transition-all hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 disabled:opacity-50"
+                disabled={isLoading}
+                data-tooltip-id="app-tooltip"
+                data-tooltip-content={t('invertMask')}
+            >
+                <InvertIcon className="w-5 h-5" />
+            </button>
+        )}
          <button
             onClick={onClear}
             className="flex-1 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 font-bold py-3.5 px-6 rounded-xl transition-all hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 text-sm disabled:opacity-50"

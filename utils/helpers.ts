@@ -33,7 +33,7 @@ export const fileToDataURL = (file: File): Promise<string> => {
     });
 };
 
-type WorkerTask = 'COMPRESS' | 'CROP' | 'TEXT' | 'MEMEIFY';
+type WorkerTask = 'COMPRESS' | 'CROP' | 'TEXT' | 'MEMEIFY' | 'CONVERT';
 type WorkerPayload = {
     file?: File;
     image?: File;
@@ -41,7 +41,9 @@ type WorkerPayload = {
     imageElement?: { naturalWidth: number, naturalHeight: number, width: number, height: number };
     textOptions?: TextOptions;
     memeOptions?: MemeOptions;
-    mimeType?: 'image/jpeg' | 'image/png';
+    mimeType?: 'image/jpeg' | 'image/png' | 'image/webp';
+    quality?: number;
+    filename?: string;
 };
 
 // --- START INLINED WORKER CODE ---
@@ -216,6 +218,22 @@ const handleMemeify = async (imageFile, options) => {
     return new File([blob], 'meme-' + Date.now() + '.png', { type: 'image/png' });
 };
 
+const handleConvert = async (file, options) => {
+    const imageBitmap = await createImageBitmap(file);
+    const canvas = new OffscreenCanvas(imageBitmap.width, imageBitmap.height);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Could not get OffscreenCanvas context for conversion.');
+    
+    ctx.drawImage(imageBitmap, 0, 0);
+    
+    const blob = await canvas.convertToBlob({
+        type: options.mimeType,
+        quality: options.quality
+    });
+    
+    return new File([blob], options.filename, { type: options.mimeType });
+};
+
 self.onmessage = async (event) => {
     const { task, payload } = event.data;
 
@@ -233,6 +251,9 @@ self.onmessage = async (event) => {
                 break;
             case 'MEMEIFY':
                 result = await handleMemeify(payload.image, payload.memeOptions);
+                break;
+            case 'CONVERT':
+                result = await handleConvert(payload.file, payload);
                 break;
             default:
                 throw new Error('Unknown worker task: ' + task);

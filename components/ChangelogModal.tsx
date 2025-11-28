@@ -98,8 +98,8 @@ const ChangelogModal: React.FC<ChangelogModalProps> = ({ isOpen, onClose }) => {
                        </div>
                        <div>
                          <p className={`text-xs font-bold uppercase tracking-wider ${styles.textColor}`}>{styles.label}</p>
-                         <h4 className="font-semibold text-gray-800 dark:text-gray-200 mt-0.5">{t(change.titleKey)}</h4>
-                         <p className="text-sm text-gray-600 dark:text-gray-400">{t(change.descriptionKey)}</p>
+                         <h4 className="font-semibold text-gray-800 dark:text-gray-200 mt-0.5">{t(change.titleKey as any)}</h4>
+                         <p className="text-sm text-gray-600 dark:text-gray-400">{t(change.descriptionKey as any)}</p>
                        </div>
                      </li>
                    );

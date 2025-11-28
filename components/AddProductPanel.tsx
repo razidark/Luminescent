@@ -6,7 +6,7 @@
 
 import * as React from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { SparkleIcon, MagicWandIcon, UndoIcon } from './icons';
+import { SparkleIcon, MagicWandIcon, UndoIcon, RedoIcon, EraserIcon, PaintBrushIcon, InvertIcon } from './icons';
 import { enhancePrompt } from '../services/geminiService';
 
 interface AddProductPanelProps {
@@ -19,17 +19,23 @@ interface AddProductPanelProps {
   setBrushSize: (size: number) => void;
   onClear: () => void;
   onUndo: () => void;
+  onRedo?: () => void;
+  onInvert?: () => void;
   onGenerateSuggestions: () => Promise<string[]>;
   onAutoSelect: (label: string) => Promise<void>;
+  onMagicMaskClick: (label: string) => Promise<void>;
+  tool: 'brush' | 'eraser';
+  setTool: (tool: 'brush' | 'eraser') => void;
 }
 
-const AddProductPanel: React.FC<AddProductPanelProps> = ({ prompt, setPrompt, onGenerate, isLoading, hasMask, brushSize, setBrushSize, onClear, onUndo, onGenerateSuggestions, onAutoSelect }) => {
+const AddProductPanel: React.FC<AddProductPanelProps> = ({ prompt, setPrompt, onGenerate, isLoading, hasMask, brushSize, setBrushSize, onClear, onUndo, onRedo, onInvert, onGenerateSuggestions, onAutoSelect, onMagicMaskClick, tool, setTool }) => {
   const { t } = useLanguage();
   const [suggestions, setSuggestions] = React.useState<string[]>([]);
   const [isSuggesting, setIsSuggesting] = React.useState(false);
   const [isEnhancing, setIsEnhancing] = React.useState(false);
   const [autoSelectLabel, setAutoSelectLabel] = React.useState('');
   const [isDetecting, setIsDetecting] = React.useState(false);
+  const [isMasking, setIsMasking] = React.useState(false);
 
   const handleSuggest = async () => {
     setIsSuggesting(true);
@@ -63,6 +69,16 @@ const AddProductPanel: React.FC<AddProductPanelProps> = ({ prompt, setPrompt, on
     } finally {
       setIsDetecting(false);
     }
+  };
+
+  const handleMagicMaskClick = async () => {
+      if (!autoSelectLabel.trim()) return;
+      setIsMasking(true);
+      try {
+          await onMagicMaskClick(autoSelectLabel);
+      } finally {
+          setIsMasking(false);
+      }
   };
 
   return (
@@ -117,6 +133,24 @@ const AddProductPanel: React.FC<AddProductPanelProps> = ({ prompt, setPrompt, on
       )}
 
       <div className="bg-gray-100 dark:bg-white/5 p-4 rounded-xl border border-gray-200 dark:border-white/10">
+         
+         <div className="flex gap-2 mb-4 bg-white dark:bg-white/5 p-1 rounded-lg">
+            <button
+                onClick={() => setTool('brush')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-all text-sm font-bold ${tool === 'brush' ? 'bg-theme-accent text-white shadow-md' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10'}`}
+            >
+                <PaintBrushIcon className="w-4 h-4" />
+                Draw
+            </button>
+            <button
+                onClick={() => setTool('eraser')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-all text-sm font-bold ${tool === 'eraser' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-md' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10'}`}
+            >
+                <EraserIcon className="w-4 h-4" />
+                Erase
+            </button>
+         </div>
+
          <div className="mb-4">
             <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 block">{t('smartSelectTitle')}</label>
             <div className="flex gap-2">
@@ -128,12 +162,21 @@ const AddProductPanel: React.FC<AddProductPanelProps> = ({ prompt, setPrompt, on
                     className="flex-grow bg-white dark:bg-gray-800/50 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-theme-accent"
                     disabled={isLoading || isDetecting}
                 />
+            </div>
+            <div className="flex gap-2 mt-2">
                 <button 
                     onClick={handleAutoSelectClick}
                     disabled={isLoading || isDetecting || !autoSelectLabel.trim()}
-                    className="px-4 py-2 bg-theme-accent text-white rounded-lg text-sm font-bold disabled:opacity-50"
+                    className="flex-1 px-4 py-2 bg-theme-accent text-white rounded-lg text-sm font-bold disabled:opacity-50"
                 >
                     {isDetecting ? t('detecting') : t('smartSelectBtn')}
+                </button>
+                <button 
+                    onClick={handleMagicMaskClick}
+                    disabled={isLoading || isDetecting || isMasking || !autoSelectLabel.trim()}
+                    className="flex-1 px-3 py-2 bg-theme-gradient text-white rounded-lg text-xs font-bold disabled:opacity-50 shadow-md hover:shadow-lg transition-all"
+                >
+                    {isMasking ? t('masking') : t('smartSelectPrecise')}
                 </button>
             </div>
          </div>
@@ -158,10 +201,33 @@ const AddProductPanel: React.FC<AddProductPanelProps> = ({ prompt, setPrompt, on
             onClick={onUndo}
             className="flex-shrink-0 p-3.5 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-xl transition-all hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 disabled:opacity-50"
             disabled={isLoading}
-            title={t('undo')}
+            data-tooltip-id="app-tooltip"
+            data-tooltip-content={t('undo')}
         >
             <UndoIcon className="w-5 h-5" />
         </button>
+        {onRedo && (
+            <button
+                onClick={onRedo}
+                className="flex-shrink-0 p-3.5 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-xl transition-all hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 disabled:opacity-50"
+                disabled={isLoading}
+                data-tooltip-id="app-tooltip"
+                data-tooltip-content={t('redo')}
+            >
+                <RedoIcon className="w-5 h-5" />
+            </button>
+        )}
+        {onInvert && (
+            <button
+                onClick={onInvert}
+                className="flex-shrink-0 p-3.5 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-xl transition-all hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 disabled:opacity-50"
+                disabled={isLoading}
+                data-tooltip-id="app-tooltip"
+                data-tooltip-content={t('invertMask')}
+            >
+                <InvertIcon className="w-5 h-5" />
+            </button>
+        )}
          <button
             onClick={onClear}
             className="flex-1 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 font-bold py-4 px-6 rounded-lg transition-all hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 text-base disabled:opacity-50"

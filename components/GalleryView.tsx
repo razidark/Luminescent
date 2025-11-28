@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -41,17 +42,38 @@ const GalleryThumbnail: React.FC<{
             {item.type === 'video' && <VideoIcon className="absolute bottom-2 right-2 w-6 h-6 text-white drop-shadow-lg" />}
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
                 {item.prompt && (
-                    <button onClick={onRemix} className="p-3 bg-white/10 text-gray-200 rounded-full transition-all hover:bg-theme-accent-hover hover:scale-110 active:scale-95" title={t('galleryRemix')}>
+                    <button 
+                        onClick={onRemix} 
+                        className="p-3 bg-white/10 text-gray-200 rounded-full transition-all hover:bg-theme-accent-hover hover:scale-110 active:scale-95" 
+                        data-tooltip-id="app-tooltip"
+                        data-tooltip-content={t('galleryRemix')}
+                    >
                         <RefreshIcon className="w-5 h-5" />
                     </button>
                 )}
-                <button onClick={onEdit} disabled={item.type === 'video'} className="p-3 bg-white/10 text-gray-200 rounded-full transition-all hover:bg-theme-accent-hover hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                <button 
+                    onClick={onEdit} 
+                    disabled={item.type === 'video'} 
+                    className="p-3 bg-white/10 text-gray-200 rounded-full transition-all hover:bg-theme-accent-hover hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    data-tooltip-id="app-tooltip"
+                    data-tooltip-content={t('galleryEdit')}
+                >
                     <EditIcon className="w-5 h-5" />
                 </button>
-                <button onClick={onDownload} className="p-3 bg-white/10 text-gray-200 rounded-full transition-all hover:bg-theme-accent-hover hover:scale-110 active:scale-95">
+                <button 
+                    onClick={onDownload} 
+                    className="p-3 bg-white/10 text-gray-200 rounded-full transition-all hover:bg-theme-accent-hover hover:scale-110 active:scale-95"
+                    data-tooltip-id="app-tooltip"
+                    data-tooltip-content={t('galleryDownload')}
+                >
                     <DownloadIcon className="w-5 h-5" />
                 </button>
-                <button onClick={onDelete} className="p-3 bg-white/10 text-gray-200 rounded-full transition-all hover:bg-red-500/80 hover:scale-110 active:scale-95">
+                <button 
+                    onClick={onDelete} 
+                    className="p-3 bg-white/10 text-gray-200 rounded-full transition-all hover:bg-red-500/80 hover:scale-110 active:scale-95"
+                    data-tooltip-id="app-tooltip"
+                    data-tooltip-content={t('galleryDelete')}
+                >
                     <TrashIcon className="w-5 h-5" />
                 </button>
             </div>
@@ -162,7 +184,7 @@ const GalleryView: React.FC<GalleryViewProps> = ({ onEdit, setError, onRemix }) 
                         <GalleryThumbnail
                             key={item.id}
                             item={item}
-                            t={t}
+                            t={t as any}
                             onClick={() => setPreviewItem({item, url: URL.createObjectURL(item.blob)})}
                             onEdit={(e) => { e.stopPropagation(); handleEdit(item); }}
                             onDownload={(e) => { e.stopPropagation(); handleDownload(item); }}

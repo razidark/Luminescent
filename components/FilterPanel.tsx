@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -5,7 +6,7 @@
 
 import * as React from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { SparkleIcon, SynthwaveIcon, AnimeIcon, LomoIcon, GlitchIcon, CyberpunkIcon, FilmNoirIcon, WatercolorIcon, VintageIcon, PopArtIcon, SteampunkIcon, ClaymationIcon, BlueprintIcon, ComicBookIcon, InfraredIcon, GouacheIcon, DoubleExposureIcon, LongExposureIcon, TiltShiftIcon, SolarizedIcon, PixelArtIcon, ArtDecoIcon, ArtNouveauIcon, RevolutionaryPropagandaIcon, CorporateIcon, PunkRockCollageIcon, MinimalistFreedomIcon, RoyalRegaliaIcon, MatrixIcon, BladeRunnerIcon, WesAndersonIcon, MadMaxIcon, AmelieIcon, GoldenHourIcon, MonochromeIcon, SketchIcon, OrigamiIcon, UkiyoeIcon, VanGoghIcon, GhibliIcon, DuneIcon, ArcaneIcon, SpiderVerseIcon, BokehIcon, LightLeakIcon, Anaglyph3DIcon } from './icons';
+import { SparkleIcon, SynthwaveIcon, AnimeIcon, LomoIcon, GlitchIcon, CyberpunkIcon, FilmNoirIcon, WatercolorIcon, VintageIcon, PopArtIcon, SteampunkIcon, ClaymationIcon, BlueprintIcon, ComicBookIcon, InfraredIcon, GouacheIcon, DoubleExposureIcon, LongExposureIcon, TiltShiftIcon, SolarizedIcon, PixelArtIcon, ArtDecoIcon, ArtNouveauIcon, RevolutionaryPropagandaIcon, CorporateIcon, PunkRockCollageIcon, MinimalistFreedomIcon, RoyalRegaliaIcon, MatrixIcon, BladeRunnerIcon, WesAndersonIcon, MadMaxIcon, AmelieIcon, GoldenHourIcon, MonochromeIcon, SketchIcon, OrigamiIcon, UkiyoeIcon, VanGoghIcon, GhibliIcon, DuneIcon, ArcaneIcon, SpiderVerseIcon, BokehIcon, LightLeakIcon, Anaglyph3DIcon, SearchIcon } from './icons';
 
 interface FilterPanelProps {
   onApplyFilter: (prompt: string, name: string) => void;
@@ -34,6 +35,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onApplyFilter, onApplyLuckyFi
   const [isLuckyLoading, setIsLuckyLoading] = React.useState(false);
   const [strength, setStrength] = React.useState<Strength>('Normal');
   const [activeCategoryId, setActiveCategoryId] = React.useState<string>('cinematic');
+  const [searchQuery, setSearchQuery] = React.useState('');
 
   const filterCategories: FilterCategory[] = [
     {
@@ -110,7 +112,15 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onApplyFilter, onApplyLuckyFi
   const activePrompt = selectedPreset?.prompt || customPrompt;
   const activeName = selectedPreset?.name || customPrompt;
   const isBusy = isLoading || isLuckyLoading;
-  const activeCategory = filterCategories.find(c => c.id === activeCategoryId) || filterCategories[0];
+  
+  const filteredPresets = React.useMemo(() => {
+      if (!searchQuery.trim()) {
+          const category = filterCategories.find(c => c.id === activeCategoryId);
+          return category ? category.presets : [];
+      }
+      // Flatten categories and filter
+      return filterCategories.flatMap(c => c.presets).filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  }, [searchQuery, activeCategoryId]);
 
   const handlePresetClick = (preset: FilterPreset) => {
     setSelectedPreset(preset);
@@ -151,26 +161,40 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onApplyFilter, onApplyLuckyFi
 
   return (
     <div className="p-6 flex flex-col gap-6 animate-fade-in h-full">
-      <div className="text-center space-y-2">
+      <div className="text-center space-y-4">
          <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-300">{t('filterTitle')}</h3>
          
-         {/* Category Tabs */}
-         <div className="flex flex-wrap justify-center gap-2 bg-gray-100 dark:bg-white/5 p-1 rounded-xl">
-            {filterCategories.map(cat => (
-                <button
-                    key={cat.id}
-                    onClick={() => setActiveCategoryId(cat.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${activeCategoryId === cat.id ? 'bg-white dark:bg-gray-700 text-theme-accent shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
-                >
-                    {t(cat.titleKey)}
-                </button>
-            ))}
+         {/* Search Bar */}
+         <div className="relative w-full max-w-md mx-auto">
+             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+             <input 
+                type="text" 
+                placeholder="Search filters..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-theme-accent/50"
+             />
          </div>
+
+         {/* Category Tabs - Hide if searching */}
+         {!searchQuery && (
+            <div className="flex flex-wrap justify-center gap-2 bg-gray-100 dark:bg-white/5 p-1 rounded-xl">
+                {filterCategories.map(cat => (
+                    <button
+                        key={cat.id}
+                        onClick={() => setActiveCategoryId(cat.id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${activeCategoryId === cat.id ? 'bg-white dark:bg-gray-700 text-theme-accent shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+                    >
+                        {t(cat.titleKey as any)}
+                    </button>
+                ))}
+            </div>
+         )}
       </div>
       
       {/* Filter Grid */}
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 max-h-[400px] overflow-y-auto p-2 custom-scrollbar">
-        {activeCategory.presets.map(preset => (
+        {filteredPresets.map(preset => (
             <button
             key={preset.name}
             onClick={() => handlePresetClick(preset)}
@@ -186,6 +210,11 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onApplyFilter, onApplyLuckyFi
                 )}
             </button>
         ))}
+        {filteredPresets.length === 0 && (
+            <div className="col-span-full text-center py-8 text-gray-500 text-sm">
+                No filters found matching "{searchQuery}"
+            </div>
+        )}
       </div>
 
       <div className="space-y-4 mt-auto">

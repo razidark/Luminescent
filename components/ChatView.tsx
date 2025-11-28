@@ -27,6 +27,7 @@ interface ChatViewProps {
 
 // --- Markdown Renderer Component ---
 const MarkdownRenderer: React.FC<{ text: string }> = React.memo(({ text }) => {
+    const { t } = useLanguage();
     const elements: React.ReactNode[] = [];
     
     // Split by code blocks first: ```lang ... ```
@@ -143,6 +144,8 @@ const MarkdownRenderer: React.FC<{ text: string }> = React.memo(({ text }) => {
                         <button 
                             onClick={() => navigator.clipboard.writeText(code.trim())}
                             className="hover:text-white transition-colors"
+                            data-tooltip-id="app-tooltip"
+                            data-tooltip-content={t('copyCode')}
                         >
                             Copy
                         </button>
@@ -362,13 +365,16 @@ const ChatView: React.FC<ChatViewProps> = ({ onEditImage }) => {
                             <button 
                                 onClick={handleClearChat}
                                 className="p-2 text-gray-500 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors"
-                                title={t('clearChat', 'Clear Chat')}
+                                data-tooltip-id="app-tooltip"
+                                data-tooltip-content={t('clearChat')}
                             >
                                 <TrashIcon className="w-5 h-5" />
                             </button>
                             <button
                                 onClick={() => setUseReasoning(!useReasoning)}
                                 className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all flex items-center gap-2 ${useReasoning ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/30' : 'bg-gray-200 dark:bg-gray-800 text-gray-500'}`}
+                                data-tooltip-id="app-tooltip"
+                                data-tooltip-content={t('thinkingMode')}
                             >
                                 <SparkleIcon className="w-3 h-3" /> Thinking {useReasoning ? 'ON' : 'OFF'}
                             </button>
@@ -377,6 +383,8 @@ const ChatView: React.FC<ChatViewProps> = ({ onEditImage }) => {
                     <button
                         onClick={toggleVoiceMode}
                         className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${isVoiceMode ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-theme-gradient text-white hover:shadow-lg'}`}
+                        data-tooltip-id="app-tooltip"
+                        data-tooltip-content={isVoiceMode ? 'Stop Voice Chat' : 'Start Voice Chat'}
                     >
                         {isVoiceMode ? 'End Live Session' : 'Start Live Voice'}
                     </button>
@@ -444,6 +452,8 @@ const ChatView: React.FC<ChatViewProps> = ({ onEditImage }) => {
                                                             <button 
                                                                 onClick={() => handleEditAttachedImage(msg.image!)} 
                                                                 className="bg-white text-gray-800 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-gray-200 transition-colors"
+                                                                data-tooltip-id="app-tooltip"
+                                                                data-tooltip-content={t('editImage')}
                                                             >
                                                                 <EditIcon className="w-4 h-4"/> Edit
                                                             </button>
@@ -467,7 +477,7 @@ const ChatView: React.FC<ChatViewProps> = ({ onEditImage }) => {
                                         {msg.role === 'model' && !msg.isThinking && (
                                             <div className="flex flex-col gap-2 pl-2">
                                                 <div className="flex items-center gap-2">
-                                                    <button onClick={() => handleTTS(msg.text)} className="p-1.5 text-gray-500 hover:text-theme-accent transition-colors" title="Read Aloud">
+                                                    <button onClick={() => handleTTS(msg.text)} className="p-1.5 text-gray-500 hover:text-theme-accent transition-colors" data-tooltip-id="app-tooltip" data-tooltip-content={t('readAloud')}>
                                                         <SpeakerLoudIcon className="w-4 h-4" />
                                                     </button>
                                                 </div>
@@ -477,7 +487,7 @@ const ChatView: React.FC<ChatViewProps> = ({ onEditImage }) => {
                                                         {msg.grounding.groundingChunks.map((chunk: any, idx: number) => {
                                                             if (chunk.web?.uri) {
                                                                 return (
-                                                                    <a key={idx} href={chunk.web.uri} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 px-3 py-1.5 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors border border-blue-200 dark:border-blue-800">
+                                                                    <a key={idx} href={chunk.web.uri} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 px-3 py-1.5 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors border border-blue-200 dark:border-blue-800" data-tooltip-id="app-tooltip" data-tooltip-content={t('sourceLink')}>
                                                                         <SparkleIcon className="w-3 h-3" /> 
                                                                         <span className="truncate max-w-[150px]">{chunk.web.title || "Source"}</span>
                                                                     </a>
@@ -485,7 +495,7 @@ const ChatView: React.FC<ChatViewProps> = ({ onEditImage }) => {
                                                             }
                                                             if (chunk.maps) {
                                                                 return (
-                                                                    <button key={idx} className="flex items-center gap-1 text-xs bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-300 px-3 py-1.5 rounded-full border border-green-200 dark:border-green-800 cursor-default">
+                                                                    <button key={idx} className="flex items-center gap-1 text-xs bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-300 px-3 py-1.5 rounded-full border border-green-200 dark:border-green-800 cursor-default" data-tooltip-id="app-tooltip" data-tooltip-content={t('mapLink')}>
                                                                         <MapIcon className="w-3 h-3" /> 
                                                                         <span>{chunk.maps.title || "Map Location"}</span>
                                                                     </button>
@@ -536,7 +546,8 @@ const ChatView: React.FC<ChatViewProps> = ({ onEditImage }) => {
                                 <button 
                                     onClick={() => fileInputRef.current?.click()}
                                     className="p-3 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-500 hover:text-theme-accent hover:bg-gray-200 dark:hover:bg-white/20 transition-all"
-                                    title="Upload Image, Video or Audio"
+                                    data-tooltip-id="app-tooltip"
+                                    data-tooltip-content="Upload Image, Video or Audio"
                                 >
                                     <UploadIcon className="w-6 h-6" />
                                 </button>
@@ -555,6 +566,8 @@ const ChatView: React.FC<ChatViewProps> = ({ onEditImage }) => {
                                         onClick={() => handleSendMessage()}
                                         disabled={!inputValue.trim() && !attachedFile || isLoading}
                                         className="absolute right-2 bottom-2 p-1.5 bg-theme-gradient text-white rounded-lg transition-transform active:scale-90 disabled:opacity-50 disabled:scale-100 shadow-sm"
+                                        data-tooltip-id="app-tooltip"
+                                        data-tooltip-content={t('sendMessage')}
                                     >
                                         {isLoading ? <Spinner /> : <ChatIcon className="w-4 h-4" />}
                                     </button>

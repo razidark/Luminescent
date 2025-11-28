@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-export type Tab = 'generate' | 'video' | 'erase' | 'retouch' | 'text' | 'adjust' | 'filters' | 'crop' | 'expand' | 'upscale' | 'restore' | 'background' | 'product' | 'cardify' | 'memeify' | 'gallery' | 'add-product' | 'color' | 'style-transfer' | 'captions' | 'variations' | 'chat';
+export type Tab = 'generate' | 'video' | 'erase' | 'retouch' | 'text' | 'adjust' | 'filters' | 'crop' | 'expand' | 'upscale' | 'restore' | 'background' | 'product' | 'cardify' | 'memeify' | 'gallery' | 'add-product' | 'color' | 'style-transfer' | 'captions' | 'variations' | 'chat' | 'gif' | 'enhance' | 'sketch' | 'focus';
 
 export interface HistoryItem {
     action: string;
