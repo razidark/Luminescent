@@ -501,7 +501,7 @@ const App: React.FC = () => {
   };
 
   return (
-    // Updated: h-screen instead of min-h-screen to lock viewport
+    // Locked viewport height to ensure page fits perfectly without scrolling
     <div className="relative isolate bg-transparent text-gray-900 dark:text-gray-100 h-screen flex flex-col overflow-hidden">
       {renderBackground()}
       <Header 
@@ -514,7 +514,7 @@ const App: React.FC = () => {
         isHistoryAvailable={history.length > 0 && activeTab !== 'video' && activeTab !== 'gallery' && activeTab !== 'chat'}
       />
       <div className="flex flex-grow relative overflow-hidden min-h-0">
-        {/* If in Editor Mode, we use p-2/p-4 to give a small "margin" around the card, but ensure it fits the screen height */}
+        {/* Editor container with restored padding for card layout */}
         <main className={`relative z-10 flex items-start flex-grow w-full h-full transition-all duration-300 min-h-0 ${isEditorMode ? 'p-2 md:p-4 gap-2' : 'p-4 md:p-8 gap-6'}`}>
           <div className="flex-grow flex flex-col gap-0 w-full h-full min-h-0">
              {/* Always show toolbar if an image is loaded OR if we are in Chat mode */}
@@ -526,7 +526,6 @@ const App: React.FC = () => {
                     />
                 </div>
             )}
-            {/* Content Container: Removed h-full to let flex-grow handle resizing properly within parent */}
             <div className="flex-grow flex w-full overflow-hidden relative min-h-0">
                 {renderContent()}
             </div>
@@ -542,7 +541,7 @@ const App: React.FC = () => {
         </main>
       </div>
       
-      {/* Footer is typically hidden in full-screen editor mode to save space, or kept minimal */}
+      {/* Footer is hidden in full-screen editor mode to save space */}
       {!isEditorMode && <Footer />}
 
        <input
@@ -564,12 +563,16 @@ const App: React.FC = () => {
       <Tooltip id="app-tooltip" className="app-tooltip" />
       
       {isGlobalDragging && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-fade-in">
-            <div className="border-4 border-dashed border-theme-accent rounded-3xl p-12 flex flex-col items-center justify-center gap-6 bg-white/10 shadow-2xl pointer-events-none transform scale-110 transition-transform">
-                <div className="p-6 bg-theme-accent/20 rounded-full animate-bounce">
-                    <UploadIcon className="w-16 h-16 text-theme-accent" />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md animate-fade-in transition-all duration-300">
+            <div className="relative border-4 border-dashed border-theme-accent rounded-3xl p-16 flex flex-col items-center justify-center gap-8 bg-gray-900/80 shadow-2xl pointer-events-none transform scale-100 animate-pulse-glow">
+                <div className="absolute inset-0 bg-theme-accent/5 rounded-3xl blur-xl"></div>
+                <div className="p-8 bg-theme-accent/20 rounded-full animate-bounce relative z-10">
+                    <UploadIcon className="w-20 h-20 text-theme-accent" />
                 </div>
-                <h2 className="text-3xl font-bold text-white tracking-tight drop-shadow-lg">{t('dropToUpload')}</h2>
+                <h2 className="text-4xl font-extrabold text-white tracking-tight drop-shadow-[0_0_15px_rgba(var(--theme-accent),0.5)] relative z-10 font-display">
+                    {t('dropToUpload')}
+                </h2>
+                <p className="text-gray-300 text-lg relative z-10">Release to start editing</p>
             </div>
         </div>
       )}

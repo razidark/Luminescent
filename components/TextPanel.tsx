@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -54,6 +55,12 @@ const TextPanel: React.FC<TextPanelProps> = ({ onApplyText, isLoading, initialTe
     const [shadowBlur, setShadowBlur] = React.useState(10);
     const [shadowOffsetX, setShadowOffsetX] = React.useState(5);
     const [shadowOffsetY, setShadowOffsetY] = React.useState(5);
+
+    const predefinedColors = [
+      '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF', 
+      '#FFFF00', '#00FFFF', '#FF00FF', '#FFA500', '#800080',
+      '#FFC0CB', '#4B0082', '#A52A2A', '#808080', '#008080'
+    ];
 
     React.useEffect(() => {
         if (initialText) {
@@ -147,20 +154,29 @@ const TextPanel: React.FC<TextPanelProps> = ({ onApplyText, isLoading, initialTe
                         {fonts.map(font => <option key={font} value={font} style={{ fontFamily: font }}>{font}</option>)}
                     </select>
                 </div>
-                <div className="flex gap-4">
-                     <div className="flex-grow">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t('color')}</label>
-                        <div className="h-10 bg-gray-100 dark:bg-white/10 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center px-2">
-                            <input type="color" value={color} onChange={e => setColor(e.target.value)} disabled={isBusy} className="w-full h-8 bg-transparent border-none cursor-pointer rounded"/>
-                        </div>
+                <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t('style')}</label>
+                    <div className="flex gap-1">
+                        <button onClick={() => setIsBold(!isBold)} className={`flex-1 h-10 font-bold rounded-lg transition-colors border border-transparent ${isBold ? 'bg-theme-accent text-white shadow-md' : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/20'}`}>B</button>
+                        <button onClick={() => setIsItalic(!isItalic)} className={`flex-1 h-10 italic font-serif rounded-lg transition-colors border border-transparent ${isItalic ? 'bg-theme-accent text-white shadow-md' : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/20'}`}>I</button>
                     </div>
-                    <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t('style')}</label>
-                        <div className="flex gap-1">
-                            <button onClick={() => setIsBold(!isBold)} className={`w-10 h-10 font-bold rounded-lg transition-colors border border-transparent ${isBold ? 'bg-theme-accent text-white shadow-md' : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/20'}`}>B</button>
-                            <button onClick={() => setIsItalic(!isItalic)} className={`w-10 h-10 italic font-serif rounded-lg transition-colors border border-transparent ${isItalic ? 'bg-theme-accent text-white shadow-md' : 'bg-gray-100 dark:bg-white/10 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/20'}`}>I</button>
-                        </div>
-                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">{t('color')}</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                     {predefinedColors.map(c => (
+                         <button 
+                            key={c}
+                            onClick={() => setColor(c)}
+                            className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${color === c ? 'border-theme-accent scale-110 ring-1 ring-offset-1 ring-offset-transparent ring-theme-accent' : 'border-transparent'}`}
+                            style={{ backgroundColor: c }}
+                         />
+                     ))}
+                </div>
+                <div className="h-10 bg-gray-100 dark:bg-white/10 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center px-2">
+                    <input type="color" value={color} onChange={e => setColor(e.target.value)} disabled={isBusy} className="w-full h-8 bg-transparent border-none cursor-pointer rounded"/>
                 </div>
             </div>
 

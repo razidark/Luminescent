@@ -1,4 +1,3 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -25,6 +24,8 @@ interface ZoomPanWrapperProps {
   zoomStep?: number;
   imageRef: React.RefObject<HTMLImageElement>;
   imageUrl: string | null;
+  onTransformChange?: (scale: number, rotation: number) => void;
+  panningAllowed?: boolean;
 }
 
 const getTouchDistance = (touches: React.TouchList) => {
@@ -43,6 +44,8 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
   zoomStep = 0.5,
   imageRef,
   imageUrl,
+  onTransformChange,
+  panningAllowed = false
 }, ref) => {
   // Use refs for state to avoid re-renders during gestures
   const transform = useRef({ x: 0, y: 0, scale: 1, rotation: 0, flipX: false, flipY: false });
@@ -69,10 +72,14 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
     // Update cursor based on state
     if (containerRef.current) {
         if (isPanning.current) containerRef.current.style.cursor = 'grabbing';
-        else if (isSpacebarPressed.current) containerRef.current.style.cursor = 'grab';
+        else if (isSpacebarPressed.current || panningAllowed) containerRef.current.style.cursor = 'grab';
         else containerRef.current.style.cursor = 'default';
     }
-  }, []);
+
+    if (onTransformChange) {
+        onTransformChange(scale, rotation);
+    }
+  }, [onTransformChange, panningAllowed]);
 
   const updateZoom = (newScale: number, centerX?: number, centerY?: number) => {
     const clampedScale = Math.max(minScale, Math.min(maxScale, newScale));
@@ -150,14 +157,9 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
     const image = imageRef.current;
     if (!container || !image || !image.naturalWidth || !image.naturalHeight) return;
 
-    // Safely handle 0 width/height (hidden container) to prevent infinite loops
-    if (container.clientWidth === 0 || container.clientHeight === 0) {
-        // We don't recurse here, resizing observer will handle it when size becomes available
-        return;
-    }
-
-    const containerWidth = container.clientWidth - 40; // padding
-    const containerHeight = container.clientHeight - 40;
+    // Ensure we have valid dimensions. Using max(100, ...) prevents issues during initial render if collapsed
+    const containerWidth = Math.max(100, container.clientWidth) - 40; 
+    const containerHeight = Math.max(100, container.clientHeight) - 40;
     
     // Calculate rotated bounding box dimensions
     const rotation = transform.current.rotation;
@@ -199,7 +201,10 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
     const handleLoad = () => {
         // Reset rotation/flips on new image load
         transform.current = { x: 0, y: 0, scale: 1, rotation: 0, flipX: false, flipY: false };
-        fitToScreen();
+        // Small delay to ensure container dimensions are calculated and layout is stable
+        setTimeout(() => {
+             fitToScreen();
+        }, 50);
     };
     
     if (image.complete) {
@@ -271,7 +276,8 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
     }
     lastTapTime.current = currentTime;
 
-    if (e.button === 1 || (isSpacebarPressed.current && e.button === 0)) {
+    // Enable panning on Middle Click OR Space+Click OR if panning mode is explicitly allowed (Hand tool)
+    if (e.button === 1 || (isSpacebarPressed.current && e.button === 0) || (panningAllowed && e.button === 0)) {
       e.preventDefault();
       isPanning.current = true;
       startPos.current = {
@@ -320,7 +326,7 @@ const ZoomPanWrapper = forwardRef<ZoomPanRef, ZoomPanWrapperProps>(({
           isPanning.current = false;
           pinchStartDistance.current = getTouchDistance(e.touches);
           pinchStartScale.current = transform.current.scale;
-      } else if (e.touches.length === 1 && isSpacebarPressed.current) {
+      } else if (e.touches.length === 1 && (isSpacebarPressed.current || panningAllowed)) {
           isPanning.current = true;
           startPos.current = {
               x: e.touches[0].clientX - transform.current.x,

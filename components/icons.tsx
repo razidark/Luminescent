@@ -1,4 +1,3 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -7,19 +6,9 @@
 import * as React from 'react';
 
 // Base wrapper for duotone icons
-// FIX: Modified the DuotoneIcon component to accept and spread additional SVG props, resolving type errors for icons that pass props like `fill` and `stroke`.
 const DuotoneIcon: React.FC<React.SVGProps<SVGSVGElement>> = ({ children, className, viewBox = "0 0 24 24", ...props }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox={viewBox} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
-        <defs>
-            <linearGradient id="duotone-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="var(--theme-gradient-from)" />
-                <stop offset="100%" stopColor="var(--theme-gradient-to)" />
-            </linearGradient>
-            <linearGradient id="duotone-gradient-alt" x1="0%" y1="100%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="var(--theme-gradient-from)" />
-                <stop offset="100%" stopColor="var(--theme-gradient-to)" />
-            </linearGradient>
-        </defs>
+        {/* Gradients are defined globally in index.html to prevent duplicate IDs */}
         {children}
     </svg>
 );
@@ -590,6 +579,15 @@ export const FocusIcon: React.FC<{ className?: string }> = ({ className }) => (
     </DuotoneIcon>
 );
 
+export const MergeIcon: React.FC<{ className?: string }> = ({ className }) => (
+    <DuotoneIcon className={className}>
+        <path d="M4 14h6v6" stroke="currentColor" opacity="0.5" />
+        <path d="M20 10h-6V4" stroke="currentColor" opacity="0.5" />
+        <path d="M4 14l9-9" stroke="url(#duotone-gradient)" />
+        <path d="M11 21l9-9" stroke="url(#duotone-gradient)" />
+    </DuotoneIcon>
+);
+
 // Generic wrapper for the new set of filter icons
 const IconWrapper: React.FC<{ children: React.ReactNode, className?: string }> = ({ children, className }) => (
     <DuotoneIcon className={className} fill="none">{children}</DuotoneIcon>
@@ -652,6 +650,21 @@ export const HyperlapseIcon: React.FC<{ className?: string }> = ({ className }) 
 export const BokehIcon: React.FC<{ className?: string }> = ({ className }) => <IconWrapper className={className}><circle cx="8" cy="8" r="4" fill="url(#duotone-gradient)" fillOpacity="0.7" stroke="none"/><circle cx="16" cy="10" r="6" fill="url(#duotone-gradient-alt)" fillOpacity="0.7" stroke="none"/><circle cx="12" cy="18" r="3" fill="url(#duotone-gradient)" fillOpacity="0.7" stroke="none"/></IconWrapper>;
 export const LightLeakIcon: React.FC<{ className?: string }> = ({ className }) => <IconWrapper className={className}><rect x="2" y="2" width="20" height="20" rx="2" stroke="currentColor" opacity="0.5"/><path d="M2 7L22 17" stroke="url(#duotone-gradient)" strokeWidth="3"/><path d="M2 12L22 22" stroke="url(#duotone-gradient-alt)" strokeWidth="3" opacity="0.6"/></IconWrapper>;
 export const Anaglyph3DIcon: React.FC<{ className?: string }> = ({ className }) => <IconWrapper className={className}><rect x="4" y="4" width="15" height="15" rx="2" stroke="cyan" opacity="0.8"/><rect x="6" y="6" width="15" height="15" rx="2" stroke="red" opacity="0.8"/></IconWrapper>;
+
+// Icons for new enhancement filters
+export const HDRIcon: React.FC<{ className?: string }> = ({ className }) => <IconWrapper className={className}><path d="M3 12h18" stroke="currentColor" opacity="0.5"/><path d="M12 3v18" stroke="currentColor" opacity="0.5"/><circle cx="12" cy="12" r="6" stroke="url(#duotone-gradient)"/></IconWrapper>;
+export const StudioLightIcon: React.FC<{ className?: string }> = ({ className }) => <IconWrapper className={className}><path d="M12 2L8 22H16L12 2Z" stroke="url(#duotone-gradient)"/><ellipse cx="12" cy="22" rx="6" ry="2" stroke="currentColor" opacity="0.5"/></IconWrapper>;
+export const ClarifyIcon: React.FC<{ className?: string }> = ({ className }) => <IconWrapper className={className}><path d="M2 12l5 5L22 3" stroke="url(#duotone-gradient)"/><path d="M22 11l-5 5-3-3" stroke="currentColor" opacity="0.5"/></IconWrapper>;
+export const VibranceIcon: React.FC<{ className?: string }> = ({ className }) => <IconWrapper className={className}><path d="M12 3v18M3 12h18" stroke="currentColor" opacity="0.5"/><path d="M4.22 4.22l15.56 15.56M19.78 4.22L4.22 19.78" stroke="url(#duotone-gradient)"/></IconWrapper>;
+export const SoftGlowIcon: React.FC<{ className?: string }> = ({ className }) => <IconWrapper className={className}><circle cx="12" cy="12" r="8" stroke="url(#duotone-gradient)" strokeDasharray="4 4"/><circle cx="12" cy="12" r="4" fill="currentColor" opacity="0.3" stroke="none"/></IconWrapper>;
+
+// Icons for new creative filters
+export const NeonIcon: React.FC<{ className?: string }> = ({ className }) => <IconWrapper className={className}><path d="M12 2L2 22h20L12 2z" stroke="url(#duotone-gradient)" strokeWidth="2"/><path d="M12 6v10" stroke="currentColor" opacity="0.5"/></IconWrapper>;
+export const PastelIcon: React.FC<{ className?: string }> = ({ className }) => <IconWrapper className={className}><circle cx="8" cy="8" r="5" stroke="url(#duotone-gradient)"/><circle cx="16" cy="16" r="5" stroke="url(#duotone-gradient-alt)"/></IconWrapper>;
+export const CharcoalIcon: React.FC<{ className?: string }> = ({ className }) => <IconWrapper className={className}><path d="M4 4l16 16M4 20L20 4" stroke="currentColor" opacity="0.5"/><rect x="4" y="4" width="16" height="16" stroke="url(#duotone-gradient)"/></IconWrapper>;
+export const OilPaintIcon: React.FC<{ className?: string }> = ({ className }) => <IconWrapper className={className}><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z" stroke="url(#duotone-gradient)"/><path d="M8 12c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="currentColor" opacity="0.5"/></IconWrapper>;
+export const MosaicIcon: React.FC<{ className?: string }> = ({ className }) => <IconWrapper className={className}><rect x="4" y="4" width="6" height="6" stroke="url(#duotone-gradient)"/><rect x="14" y="4" width="6" height="6" stroke="currentColor" opacity="0.5"/><rect x="4" y="14" width="6" height="6" stroke="currentColor" opacity="0.5"/><rect x="14" y="14" width="6" height="6" stroke="url(#duotone-gradient)"/></IconWrapper>;
+export const PsychedelicIcon: React.FC<{ className?: string }> = ({ className }) => <IconWrapper className={className}><path d="M12 2a10 10 0 0 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16zm0-14a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm0 10a4 4 0 1 1 0-8 4 4 0 0 1 0 8z" stroke="url(#duotone-gradient)"/></IconWrapper>;
 
 export const SearchIcon: React.FC<{ className?: string }> = ({ className }) => (
     <DuotoneIcon className={className}>

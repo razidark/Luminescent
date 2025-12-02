@@ -196,14 +196,36 @@ const themes: Record<string, Theme> = {
     },
     rainbow: {
         name: 'themeRainbow',
-        gradientFrom: '#ff0000', // Red
-        gradientTo: '#0000ff', // Blue
-        accent: '#00d900', // Slightly darker Green for better contrast on light elements
-        accentHover: '#ff00ff', // Magenta
+        gradientFrom: '#ff0000', // Red (Overridden by animation)
+        gradientTo: '#0000ff', // Blue (Overridden by animation)
+        accent: '#00d900', // Green (Overridden by animation)
+        accentHover: '#ff00ff', // Magenta (Overridden by animation)
         matrixColor: ['#ff0000', '#ff7f00', '#ffff00', '#00ff00', '#0000ff', '#4b0082', '#8b00ff'], // ROYGBIV spectrum
         clockHour: '#ff0000',
         clockMinute: '#00ff00',
         clockSecond: '#0000ff'
+    },
+    coffee: {
+        name: 'themeCoffee',
+        gradientFrom: '#78350f', // Amber 900
+        gradientTo: '#92400e', // Amber 800
+        accent: '#d97706', // Amber 600
+        accentHover: '#b45309',
+        matrixColor: ['#78350f', '#b45309', '#fcd34d'],
+        clockHour: '#78350f',
+        clockMinute: '#b45309',
+        clockSecond: '#fbbf24'
+    },
+    royal: {
+        name: 'themeRoyal',
+        gradientFrom: '#4c1d95', // Violet 900
+        gradientTo: '#581c87', // Purple 900
+        accent: '#fbbf24', // Amber 400 (Gold)
+        accentHover: '#f59e0b',
+        matrixColor: ['#4c1d95', '#fbbf24', '#fcd34d'],
+        clockHour: '#fbbf24',
+        clockMinute: '#a78bfa',
+        clockSecond: '#fde68a'
     }
 };
 
@@ -221,6 +243,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     });
 
+    // Apply basic theme colors
     React.useEffect(() => {
         const currentTheme = themes[themeName] || themes.rainbow;
         const root = document.documentElement;
@@ -234,6 +257,38 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         root.style.setProperty('--clock-second', currentTheme.clockSecond);
 
         localStorage.setItem('luminescenceTheme', themeName);
+    }, [themeName]);
+
+    // Rainbow Animation Effect: Cycles HSL values for a true RGB effect
+    React.useEffect(() => {
+        if (themeName !== 'rainbow') return;
+
+        let hue = 0;
+        let animationFrameId: number;
+
+        const animate = () => {
+            hue = (hue + 0.5) % 360; // Smooth cycling speed
+            const root = document.documentElement;
+            
+            // Rotating gradient (offset by 60deg)
+            root.style.setProperty('--theme-gradient-from', `hsl(${hue}, 100%, 55%)`);
+            root.style.setProperty('--theme-gradient-to', `hsl(${(hue + 60) % 360}, 100%, 55%)`);
+            
+            // Accent colors (offset by 180deg for contrast)
+            root.style.setProperty('--theme-accent', `hsl(${(hue + 180) % 360}, 100%, 60%)`);
+            root.style.setProperty('--theme-accent-hover', `hsl(${(hue + 180) % 360}, 100%, 70%)`);
+            
+            // Clock hands (staggered)
+            root.style.setProperty('--clock-hour', `hsl(${hue}, 80%, 60%)`);
+            root.style.setProperty('--clock-minute', `hsl(${(hue + 120) % 360}, 80%, 60%)`);
+            root.style.setProperty('--clock-second', `hsl(${(hue + 240) % 360}, 80%, 60%)`);
+
+            animationFrameId = requestAnimationFrame(animate);
+        };
+
+        animate();
+
+        return () => cancelAnimationFrame(animationFrameId);
     }, [themeName]);
 
     React.useEffect(() => {

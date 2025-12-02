@@ -6,7 +6,7 @@
 
 import * as React from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { SparkleIcon, SynthwaveIcon, AnimeIcon, LomoIcon, GlitchIcon, CyberpunkIcon, FilmNoirIcon, WatercolorIcon, VintageIcon, PopArtIcon, SteampunkIcon, ClaymationIcon, BlueprintIcon, ComicBookIcon, InfraredIcon, GouacheIcon, DoubleExposureIcon, LongExposureIcon, TiltShiftIcon, SolarizedIcon, PixelArtIcon, ArtDecoIcon, ArtNouveauIcon, RevolutionaryPropagandaIcon, CorporateIcon, PunkRockCollageIcon, MinimalistFreedomIcon, RoyalRegaliaIcon, MatrixIcon, BladeRunnerIcon, WesAndersonIcon, MadMaxIcon, AmelieIcon, GoldenHourIcon, MonochromeIcon, SketchIcon, OrigamiIcon, UkiyoeIcon, VanGoghIcon, GhibliIcon, DuneIcon, ArcaneIcon, SpiderVerseIcon, BokehIcon, LightLeakIcon, Anaglyph3DIcon, SearchIcon } from './icons';
+import { SparkleIcon, SynthwaveIcon, AnimeIcon, LomoIcon, GlitchIcon, CyberpunkIcon, FilmNoirIcon, WatercolorIcon, VintageIcon, PopArtIcon, SteampunkIcon, ClaymationIcon, BlueprintIcon, ComicBookIcon, InfraredIcon, GouacheIcon, DoubleExposureIcon, LongExposureIcon, TiltShiftIcon, SolarizedIcon, PixelArtIcon, ArtDecoIcon, ArtNouveauIcon, RevolutionaryPropagandaIcon, CorporateIcon, PunkRockCollageIcon, MinimalistFreedomIcon, RoyalRegaliaIcon, MatrixIcon, BladeRunnerIcon, WesAndersonIcon, MadMaxIcon, AmelieIcon, GoldenHourIcon, MonochromeIcon, SketchIcon, OrigamiIcon, UkiyoeIcon, VanGoghIcon, GhibliIcon, DuneIcon, ArcaneIcon, SpiderVerseIcon, BokehIcon, LightLeakIcon, Anaglyph3DIcon, SearchIcon, HDRIcon, StudioLightIcon, ClarifyIcon, VibranceIcon, SoftGlowIcon, NeonIcon, PastelIcon, CharcoalIcon, OilPaintIcon, MosaicIcon, PsychedelicIcon } from './icons';
 
 interface FilterPanelProps {
   onApplyFilter: (prompt: string, name: string) => void;
@@ -34,10 +34,21 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onApplyFilter, onApplyLuckyFi
   const [customPrompt, setCustomPrompt] = React.useState('');
   const [isLuckyLoading, setIsLuckyLoading] = React.useState(false);
   const [strength, setStrength] = React.useState<Strength>('Normal');
-  const [activeCategoryId, setActiveCategoryId] = React.useState<string>('cinematic');
+  const [activeCategoryId, setActiveCategoryId] = React.useState<string>('enhancement');
   const [searchQuery, setSearchQuery] = React.useState('');
 
   const filterCategories: FilterCategory[] = [
+    {
+        id: 'enhancement',
+        titleKey: 'filterCategoryEnhancement',
+        presets: [
+            { name: 'HDR', prompt: 'Apply a High Dynamic Range (HDR) effect. enhance details in both shadows and highlights, increase micro-contrast, and make the image look sharp and hyper-realistic.', icon: <HDRIcon /> },
+            { name: 'Studio Light', prompt: 'Simulate professional studio lighting. Add flattering, soft key lighting to the main subject, balance the exposure, and create a clean, high-end photography look.', icon: <StudioLightIcon /> },
+            { name: 'Clarify', prompt: 'Enhance the clarity and structure of the image. Remove haze, sharpen fine details, and boost local contrast to make the image pop.', icon: <ClarifyIcon /> },
+            { name: 'Vibrance', prompt: 'Boost the vibrance and color saturation of the image smartly. Make colors richer and more lively without oversaturating skin tones.', icon: <VibranceIcon /> },
+            { name: 'Soft Glow', prompt: 'Apply a soft, dreamy glamour glow effect. Soften the lighting and add a slight bloom to highlights for a romantic or nostalgic feel.', icon: <SoftGlowIcon /> },
+        ]
+    },
     {
         id: 'cinematic',
         titleKey: 'filterCategoryCinematic',
@@ -58,6 +69,9 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onApplyFilter, onApplyLuckyFi
         presets: [
             { name: 'Van Gogh', prompt: 'Transform the image into a painting in the style of Vincent Van Gogh, with thick, swirling impasto brushstrokes, a vibrant and emotional color palette, and a sense of dynamic movement.', icon: <VanGoghIcon /> },
             { name: 'Ghibli', prompt: 'Redraw the image in the beautiful, nostalgic style of a Studio Ghibli anime film. The scene should have lush, painterly backgrounds, soft and warm lighting, and a charming, whimsical feel.', icon: <GhibliIcon /> },
+            { name: 'Oil Painting', prompt: 'Transform the image into a classic oil painting. Use visible, textured brushstrokes, rich blended colors, and a canvas texture effect.', icon: <OilPaintIcon /> },
+            { name: 'Charcoal', prompt: 'Convert the image into a charcoal drawing. Use deep blacks and smudged greys on textured paper, emphasizing contrast and shading.', icon: <CharcoalIcon /> },
+            { name: 'Mosaic', prompt: 'Reconstruct the image as a detailed tile mosaic art. The image should look like it is made of small, colored ceramic tiles with grout lines.', icon: <MosaicIcon /> },
             { name: 'Arcane', prompt: 'Transform the image into the unique, painterly 2D/3D animation style of the series Arcane. The style should feature a gritty, textured look with dramatic, high-contrast lighting, sharp linework, and a blend of Art Nouveau and punk aesthetics.', icon: <ArcaneIcon /> },
             { name: 'Spider-Verse', prompt: "Recreate the image in the dynamic, comic-book-inspired style of 'Spider-Man: Into the Spider-Verse'. The style should include visible halftone dots, chromatic aberration, Kirby Krackle energy effects, and bold, offset linework to simulate a living comic book panel.", icon: <SpiderVerseIcon /> },
             { name: 'Watercolor', prompt: 'Transform the image into a vibrant watercolor painting with visible brush strokes and bleeding colors.', icon: <WatercolorIcon /> },
@@ -87,6 +101,9 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ onApplyFilter, onApplyLuckyFi
         id: 'stylized',
         titleKey: 'filterCategoryStylized',
         presets: [
+            { name: 'Neon Noir', prompt: 'Apply a stylish Neon Noir aesthetic. High contrast, deep blacks, and selective splashes of vibrant neon colors (pinks, blues, purples) illuminating the scene.', icon: <NeonIcon /> },
+            { name: 'Psychedelic', prompt: 'Transform the image with a psychedelic art style. Use swirling, vivid colors, distorted patterns, and a dreamlike, hallucinogenic quality.', icon: <PsychedelicIcon /> },
+            { name: 'Pastel Dream', prompt: 'Apply a soft, dreamy pastel aesthetic. Use a palette of light pinks, baby blues, mint greens, and lavenders. Reduce contrast slightly for a gentle, ethereal look.', icon: <PastelIcon /> },
             { name: 'Art Deco', prompt: 'Transform the image with a luxurious Art Deco style, featuring bold geometric patterns, sharp lines, and a glamorous, metallic color palette.', icon: <ArtDecoIcon /> },
             { name: 'Art Nouveau', prompt: 'Apply an elegant Art Nouveau style to the image, characterized by flowing, organic lines, intricate floral patterns, and a soft, natural color palette.', icon: <ArtNouveauIcon /> },
             { name: 'Glitch', prompt: 'Transform the image into a futuristic holographic projection with digital glitch effects and chromatic aberration.', icon: <GlitchIcon /> },

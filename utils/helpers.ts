@@ -33,10 +33,11 @@ export const fileToDataURL = (file: File): Promise<string> => {
     });
 };
 
-type WorkerTask = 'COMPRESS' | 'CROP' | 'TEXT' | 'MEMEIFY' | 'CONVERT';
+type WorkerTask = 'COMPRESS' | 'CROP' | 'TEXT' | 'MEMEIFY' | 'CONVERT' | 'COMPOSITE';
 type WorkerPayload = {
     file?: File;
     image?: File;
+    overlayImage?: File; // For composite
     crop?: { x: number; y: number; width: number; height: number; };
     imageElement?: { naturalWidth: number, naturalHeight: number, width: number, height: number };
     textOptions?: TextOptions;
@@ -234,6 +235,23 @@ const handleConvert = async (file, options) => {
     return new File([blob], options.filename, { type: options.mimeType });
 };
 
+const handleComposite = async (baseImage, overlayImage) => {
+    const baseBitmap = await createImageBitmap(baseImage);
+    const overlayBitmap = await createImageBitmap(overlayImage);
+    
+    const canvas = new OffscreenCanvas(baseBitmap.width, baseBitmap.height);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Could not get OffscreenCanvas context for composite.');
+    
+    // Draw base
+    ctx.drawImage(baseBitmap, 0, 0);
+    // Draw overlay stretched to fit
+    ctx.drawImage(overlayBitmap, 0, 0, baseBitmap.width, baseBitmap.height);
+    
+    const blob = await canvas.convertToBlob({ type: 'image/png' });
+    return new File([blob], 'composite-' + Date.now() + '.png', { type: 'image/png' });
+};
+
 self.onmessage = async (event) => {
     const { task, payload } = event.data;
 
@@ -254,6 +272,9 @@ self.onmessage = async (event) => {
                 break;
             case 'CONVERT':
                 result = await handleConvert(payload.file, payload);
+                break;
+            case 'COMPOSITE':
+                result = await handleComposite(payload.image, payload.overlayImage);
                 break;
             default:
                 throw new Error('Unknown worker task: ' + task);

@@ -7,8 +7,8 @@
 import * as React from 'react';
 import { translations } from '../i18n/locales';
 
-type Language = 'pt-BR'; // Restrict to PT-BR
-type TranslationKey = keyof typeof translations['pt-BR'];
+export type Language = 'en' | 'pt-BR' | 'es';
+type TranslationKey = keyof typeof translations['en'];
 
 interface LanguageContextType {
     language: Language;
@@ -18,22 +18,37 @@ interface LanguageContextType {
 
 const LanguageContext = React.createContext<LanguageContextType | undefined>(undefined);
 
+const getInitialLanguage = (): Language => {
+    const saved = localStorage.getItem('luminescenceLanguage') as Language;
+    if (saved && ['en', 'pt-BR', 'es'].includes(saved)) {
+        return saved;
+    }
+    
+    // Default to English if no preference, unless browser is distinctively PT or ES
+    const browserLang = navigator.language.toLowerCase();
+    if (browserLang.startsWith('pt')) return 'pt-BR';
+    if (browserLang.startsWith('es')) return 'es';
+    
+    return 'en';
+};
+
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    // Hardcode to pt-BR
-    const language: Language = 'pt-BR';
+    const [language, setLanguageState] = React.useState<Language>(getInitialLanguage);
 
     React.useEffect(() => {
-        document.documentElement.lang = 'pt-BR';
-        document.documentElement.dir = 'ltr';
-    }, []);
+        localStorage.setItem('luminescenceLanguage', language);
+        document.documentElement.lang = language;
+        document.documentElement.dir = 'ltr'; // Assuming all current languages are LTR
+    }, [language]);
 
-    const t = (key: TranslationKey, fallback?: string): string => {
-        // @ts-ignore - fallback if key is missing in PT (unlikely)
-        return translations['pt-BR'][key] || fallback || String(key);
+    const setLanguage = (lang: Language) => {
+        setLanguageState(lang);
     };
 
-    // No-op setter
-    const setLanguage = () => {};
+    const t = (key: TranslationKey, fallback?: string): string => {
+        // @ts-ignore - Dynamic key access
+        return translations[language][key] || translations['en'][key] || fallback || String(key);
+    };
 
     return (
         <LanguageContext.Provider value={{ language, setLanguage, t }}>

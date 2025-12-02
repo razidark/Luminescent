@@ -167,14 +167,14 @@ const RetouchPanel: React.FC<RetouchPanelProps> = ({ prompt, setPrompt, brushSiz
                 onClick={() => setTool('brush')}
                 className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-all text-sm font-bold ${tool === 'brush' ? 'bg-theme-accent text-white shadow-md' : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-white/10'}`}
             >
-                <PaintBrushIcon className="w-4 h-4" />
+                <PaintBrushIcon className="w-5 h-5" />
                 Draw
             </button>
             <button
                 onClick={() => setTool('eraser')}
                 className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-all text-sm font-bold ${tool === 'eraser' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-md' : 'text-gray-600 dark:text-gray-300 hover:bg-white/50 dark:hover:bg-white/10'}`}
             >
-                <EraserIcon className="w-4 h-4" />
+                <EraserIcon className="w-5 h-5" />
                 Erase
             </button>
          </div>
@@ -263,7 +263,7 @@ const RetouchPanel: React.FC<RetouchPanelProps> = ({ prompt, setPrompt, brushSiz
             disabled={isLoading || !canApply}
         >
           <div className="flex items-center justify-center gap-2">
-            <SparkleIcon className="w-4 h-4" />
+            <SparkleIcon className="w-5 h-5" />
             {t('apply')}
           </div>
         </button>

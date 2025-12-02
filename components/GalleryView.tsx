@@ -48,7 +48,7 @@ const GalleryThumbnail: React.FC<{
                         data-tooltip-id="app-tooltip"
                         data-tooltip-content={t('galleryRemix')}
                     >
-                        <RefreshIcon className="w-5 h-5" />
+                        <RefreshIcon className="w-6 h-6" />
                     </button>
                 )}
                 <button 
@@ -58,7 +58,7 @@ const GalleryThumbnail: React.FC<{
                     data-tooltip-id="app-tooltip"
                     data-tooltip-content={t('galleryEdit')}
                 >
-                    <EditIcon className="w-5 h-5" />
+                    <EditIcon className="w-6 h-6" />
                 </button>
                 <button 
                     onClick={onDownload} 
@@ -66,7 +66,7 @@ const GalleryThumbnail: React.FC<{
                     data-tooltip-id="app-tooltip"
                     data-tooltip-content={t('galleryDownload')}
                 >
-                    <DownloadIcon className="w-5 h-5" />
+                    <DownloadIcon className="w-6 h-6" />
                 </button>
                 <button 
                     onClick={onDelete} 
@@ -74,7 +74,7 @@ const GalleryThumbnail: React.FC<{
                     data-tooltip-id="app-tooltip"
                     data-tooltip-content={t('galleryDelete')}
                 >
-                    <TrashIcon className="w-5 h-5" />
+                    <TrashIcon className="w-6 h-6" />
                 </button>
             </div>
         </div>

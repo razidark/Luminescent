@@ -1,11 +1,10 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
 
 import * as React from 'react';
-import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
+import ReactCrop, { type Crop, type PixelCrop, makeAspectCrop, convertToPixelCrop } from 'react-image-crop';
 import { useLanguage } from '../contexts/LanguageContext';
 import { type HistoryItem, type Tab, type AddToHistoryOptions } from '../types';
 import { useEditor } from '../contexts/EditorContext';
@@ -36,8 +35,8 @@ import GifPanel from './GifPanel';
 import EnhancePanel from './EnhancePanel';
 import SketchPanel from './SketchPanel';
 import FocusPanel from './FocusPanel';
-import { UndoIcon, RedoIcon, EyeIcon, FitToScreenIcon, CenterIcon, SaveIcon, DownloadIcon, ResetIcon, RotateLeftIcon, RotateRightIcon, FlipHorizontalIcon, FlipVerticalIcon, VideoIcon, CopyIcon, CheckCircleIcon, ZoomInIcon, ZoomOutIcon } from './icons';
-import { useClickOutside } from '../hooks/useClickOutside';
+import MergePanel from './MergePanel';
+import { UndoIcon, RedoIcon, EyeIcon, FitToScreenIcon, SaveIcon, DownloadIcon, ResetIcon, ZoomInIcon, ZoomOutIcon, HandIcon, CheckCircleIcon } from './icons';
 import { dataURLtoFile } from '../utils/helpers';
 
 interface EditorViewProps {
@@ -52,655 +51,434 @@ interface EditorViewProps {
     handleRedo: () => void;
     handleReset: () => void;
     handleUploadNew: () => void;
-    handleDownload: () => void;
+    handleDownload: (file?: File) => void;
     handleSaveToCreations: (file?: File) => Promise<boolean>;
-    addImageToHistory: (newImageFile: File, options: AddToHistoryOptions) => void;
+    addImageToHistory: (file: File, options: AddToHistoryOptions) => void;
 }
 
-const EditorView: React.FC<EditorViewProps> = (props) => {
+const EditorView: React.FC<EditorViewProps> = ({
+    history,
+    historyIndex,
+    activeTab,
+    setActiveTab,
+    hasTransparentBackground,
+    isPanelCollapsed,
+    isSavingToCreations,
+    handleUndo,
+    handleRedo,
+    handleReset,
+    handleUploadNew,
+    handleDownload,
+    handleSaveToCreations,
+    addImageToHistory
+}) => {
     const { t } = useLanguage();
-    const { 
-        history, 
-        historyIndex, 
-        activeTab, 
-        setActiveTab, 
-        hasTransparentBackground, 
-        isPanelCollapsed, 
-        isSavingToCreations,
-        handleUndo,
-        handleRedo,
-        handleReset,
-        handleDownload
-    } = props;
+    const editor = useEditor();
     
-    const {
-        isLoading,
-        loadingMessage,
-        error,
-        setError,
-        prompt,
-        setPrompt,
-        isPickingColor,
-        setIsPickingColor,
-        setSourceColor,
-        handleMagicErase,
-        handleApplyRetouch,
-        handleSelectiveAdjust,
-        handleApplyFilter,
-        handleApplyLuckyFilter,
-        handleApplyAdjustment,
-        handleApplyCrop,
-        handleApplyExpand,
-        handleApplyUpscale,
-        handleApplyEnhance,
-        handleApplyRestore,
-        handleRemoveBackground,
-        handleReplaceBackground,
-        handleSetProductBackground,
-        handleAddProductShadow,
-        handleApplyAddProduct,
-        handleApplyCardify,
-        handleApplyText,
-        handleGenerateVariations,
-        handleGeneratePromptSuggestions,
-        handleApplyHeal,
-        handleDetectObjects,
-        handleApplySketch,
-        handleApplyFocus,
-        handleMagicMask,
-    } = useEditor();
-
-    const [isCompareViewActive, setIsCompareViewActive] = React.useState<boolean>(false);
-    const [isPeeking, setIsPeeking] = React.useState<boolean>(false);
+    // Canvas & Tool State
+    const [brushSize, setBrushSize] = React.useState(30);
+    const [brushColor, setBrushColor] = React.useState('rgba(255, 0, 0, 0.5)');
+    const [drawTool, setDrawTool] = React.useState<'brush' | 'eraser'>('brush');
+    const [sketchColor, setSketchColor] = React.useState('#000000');
     const [crop, setCrop] = React.useState<Crop>();
     const [completedCrop, setCompletedCrop] = React.useState<PixelCrop>();
-    const [aspect, setAspect] = React.useState<number | undefined>();
-    const [brushSize, setBrushSize] = React.useState(40);
-    const [maskImageUrl, setMaskImageUrl] = React.useState<string | null>(null);
-    const [textToApply, setTextToApply] = React.useState<string | null>(null);
-    const [isSaveMenuOpen, setIsSaveMenuOpen] = React.useState(false);
-    const [variations, setVariations] = React.useState<string[] | null>(null);
-    const [isSaveSuccess, setIsSaveSuccess] = React.useState(false);
-    const [isCopySuccess, setIsCopySuccess] = React.useState(false);
-    const [eyedropperPreview, setEyedropperPreview] = React.useState<{ x: number, y: number, color: string } | null>(null);
-    const [tool, setTool] = React.useState<'brush' | 'eraser'>('brush');
-    const [sketchColor, setSketchColor] = React.useState('#000000');
+    const [cropAspect, setCropAspect] = React.useState<number | undefined>(undefined);
+    const [isCompareVisible, setIsCompareVisible] = React.useState(false);
+    const [isSaving, setIsSaving] = React.useState(false);
+    const [isSaved, setIsSaved] = React.useState(false);
+    const [isPanMode, setIsPanMode] = React.useState(false);
     
-    // Resizable Sidebar State
-    const [sidebarWidth, setSidebarWidth] = React.useState(384); // Default to 384px (w-96)
-    
-    const imgRef = React.useRef<HTMLImageElement>(null);
-    const canvasRef = React.useRef<DrawingCanvasRef>(null);
+    // Refs
     const zoomPanRef = React.useRef<ZoomPanRef>(null);
-    const imageContainerRef = React.useRef<HTMLDivElement>(null);
-    const saveButtonRef = React.useRef<HTMLDivElement>(null);
+    const drawingCanvasRef = React.useRef<DrawingCanvasRef>(null);
+    const imageRef = React.useRef<HTMLImageElement>(null);
 
-    useClickOutside(saveButtonRef, () => {
-        if (isSaveMenuOpen) {
-            setIsSaveMenuOpen(false);
-        }
-    });
+    const currentItem = history[historyIndex];
+    const currentImageUrl = currentItem?.thumbnailUrl;
+    const originalImageUrl = history[0]?.thumbnailUrl;
 
-    const currentImage = history[historyIndex]?.file;
-    const originalImage = history[0]?.file;
-    const [currentImageUrl, setCurrentImageUrl] = React.useState<string | null>(null);
-    const [originalImageUrl, setOriginalImageUrl] = React.useState<string | null>(null);
-
+    // Clear canvas when history changes (Undo/Redo) to prevent ghost masks
     React.useEffect(() => {
-        if (currentImage) {
-          const url = URL.createObjectURL(currentImage);
-          setCurrentImageUrl(url);
-          return () => URL.revokeObjectURL(url);
-        } else {
-          setCurrentImageUrl(null);
-        }
-    }, [currentImage]);
-
-    React.useEffect(() => {
-        if (originalImage) {
-          const url = URL.createObjectURL(originalImage);
-          setOriginalImageUrl(url);
-          return () => URL.revokeObjectURL(url);
-        } else {
-          setOriginalImageUrl(null);
-        }
-    }, [originalImage]);
-    
-    React.useEffect(() => {
-        setCrop(undefined);
-        setCompletedCrop(undefined);
-        canvasRef.current?.clear();
-        setMaskImageUrl(null);
-        setIsCompareViewActive(false);
-        zoomPanRef.current?.reset();
-        setVariations(null);
-        setTool('brush');
-        setSketchColor('#000000');
+        drawingCanvasRef.current?.clear();
     }, [historyIndex]);
-    
+
+    // Reset crop and drawing when tab changes
     React.useEffect(() => {
-        if (activeTab !== 'text' && activeTab !== 'captions' && activeTab !== 'memeify') {
-            setTextToApply(null);
-        }
-        if (activeTab !== 'color') {
-            setIsPickingColor(false);
-        }
-    }, [activeTab, setIsPickingColor]);
-    
-    React.useEffect(() => {
-      if(activeTab === 'crop' || activeTab === 'add-product') {
+        drawingCanvasRef.current?.clear();
         setCrop(undefined);
         setCompletedCrop(undefined);
-      }
-    }, [activeTab]);
+        setDrawTool('brush');
+        setIsPanMode(false); // Reset pan mode on tool change
+        
+        // Set default brush settings based on tab
+        if (activeTab === 'sketch') {
+            setBrushColor(sketchColor);
+            setBrushSize(5);
+        } else {
+            setBrushColor('rgba(255, 0, 0, 0.5)'); // Red mask
+            setBrushSize(30);
+        }
+    }, [activeTab, sketchColor]);
 
+    // Update brush color when sketch color changes
     React.useEffect(() => {
-        setIsCompareViewActive(false);
-        zoomPanRef.current?.reset();
-        setTool('brush');
-        setSketchColor('#000000');
-    }, [activeTab]);
+        if (activeTab === 'sketch') {
+            setBrushColor(sketchColor);
+        }
+    }, [sketchColor, activeTab]);
 
-    // Keyboard listeners for "Peek Original" and Brush Shortcuts
-    React.useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            const target = e.target as HTMLElement;
-            if (['INPUT', 'TEXTAREA'].includes(target.tagName) || target.isContentEditable) return;
+    const getMask = () => drawingCanvasRef.current?.exportCanvas('mask') || null;
+    const getDrawing = () => drawingCanvasRef.current?.exportCanvas('image') || null;
 
-            if (e.key === '\\' && !isPeeking) setIsPeeking(true);
-            
-            if (['erase', 'retouch', 'add-product', 'sketch'].includes(activeTab || '')) {
-                if (e.key === '[') {
-                    setBrushSize(prev => Math.max(10, prev - 5));
-                } else if (e.key === ']') {
-                    setBrushSize(prev => Math.min(100, prev + 5));
-                }
-            }
-        };
-        const handleKeyUp = (e: KeyboardEvent) => {
-            if (e.key === '\\') setIsPeeking(false);
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('keyup', handleKeyUp);
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-            window.removeEventListener('keyup', handleKeyUp);
-        };
-    }, [isPeeking, activeTab]);
-
-    const canUndo = historyIndex > 0;
-    const canRedo = history.length - 1 > historyIndex;
-    const isZoomable = activeTab !== 'crop' && !isCompareViewActive && !!currentImage;
-
-    // Use either the toggle state OR the peek state (holding backslash)
-    const showCompare = isCompareViewActive || isPeeking;
-
-    const handleAcceptVariation = (imageDataUrl: string) => {
-        const file = dataURLtoFile(imageDataUrl, 'variation.png');
-        props.addImageToHistory(file, { actionKey: 'actionVariations', action: t('actionVariations') });
-        setVariations(null);
-    };
-
-    const onSave = async () => {
-        setIsSaveMenuOpen(false);
-        const success = await props.handleSaveToCreations();
+    const onSaveToCreations = async () => {
+        if (isSaving || !currentItem?.file) return;
+        setIsSaving(true);
+        const success = await handleSaveToCreations(currentItem.file);
+        setIsSaving(false);
         if (success) {
-            setIsSaveSuccess(true);
-            setTimeout(() => setIsSaveSuccess(false), 2000);
+            setIsSaved(true);
+            setTimeout(() => setIsSaved(false), 3000);
         }
-    };
-
-    const handleAnimateClick = () => {
-        if (currentImage) {
-            setActiveTab('video');
-        }
-    };
-
-    const handleCopyToClipboard = async () => {
-        if (currentImage) {
-            try {
-                await navigator.clipboard.write([
-                    new ClipboardItem({
-                        [currentImage.type]: currentImage
-                    })
-                ]);
-                setIsCopySuccess(true);
-                setTimeout(() => setIsCopySuccess(false), 2000);
-            } catch (err) {
-                console.error('Failed to copy image: ', err);
-                setError('Failed to copy to clipboard');
-            }
-        }
-    };
-
-    const getPixelColor = (e: React.MouseEvent<HTMLDivElement>): string | null => {
-        if (!imgRef.current) return null;
-    
-        const img = imgRef.current;
-        const rect = img.getBoundingClientRect();
-        
-        if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
-            return null;
-        }
-    
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-    
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        if (!ctx) return null;
-        
-        ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight);
-    
-        const naturalX = Math.floor(x * (img.naturalWidth / rect.width));
-        const naturalY = Math.floor(y * (img.naturalHeight / rect.height));
-    
-        const pixelData = ctx.getImageData(naturalX, naturalY, 1, 1).data;
-        
-        const componentToHex = (c: number) => {
-            const hex = c.toString(16);
-            return hex.length === 1 ? "0" + hex : hex;
-        };
-        const rgbToHex = (r: number, g: number, b: number) => {
-            return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
-        };
-    
-        return rgbToHex(pixelData[0], pixelData[1], pixelData[2]);
-    };
-
-    const handleColorPick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (!isPickingColor) return;
-        const hexColor = getPixelColor(e);
-        if (hexColor) {
-            setSourceColor(hexColor);
-            setIsPickingColor(false);
-            setEyedropperPreview(null);
-        }
-    };
-    
-    const handleMouseMoveForPicker = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (!isPickingColor || !imgRef.current) return;
-        const color = getPixelColor(e);
-        if (color) {
-            setEyedropperPreview({
-                x: e.clientX,
-                y: e.clientY,
-                color: color,
-            });
-        }
-    };
-
-    const handleAutoSelect = async (label: string) => {
-        const boxes = await handleDetectObjects(label);
-        if (boxes && boxes.length > 0 && canvasRef.current) {
-            canvasRef.current.drawRects(boxes);
-        }
-    };
-
-    const handleMagicMaskRequest = async (label: string) => {
-        const maskUrl = await handleMagicMask(label);
-        if (maskUrl && canvasRef.current) {
-            canvasRef.current.drawMaskImage(maskUrl);
-        }
-    };
-
-    React.useEffect(() => {
-        const handler = (e: any) => {
-            if (e.detail) handleMagicMaskRequest(e.detail);
-        };
-        window.addEventListener('magic-mask-request', handler);
-        return () => window.removeEventListener('magic-mask-request', handler);
-    }, [handleMagicMask]);
-
-    const handleAutoCrop = (box: { ymin: number, xmin: number, ymax: number, xmax: number }) => {
-        if (!imgRef.current) return;
-        const img = imgRef.current;
-        const crop: Crop = {
-            unit: '%',
-            x: (box.xmin / 1000) * 100,
-            y: (box.ymin / 1000) * 100,
-            width: ((box.xmax - box.xmin) / 1000) * 100,
-            height: ((box.ymax - box.ymin) / 1000) * 100,
-        };
-        setCrop(crop);
-        const pixelCrop: PixelCrop = {
-            unit: 'px',
-            x: (box.xmin / 1000) * img.width,
-            y: (box.ymin / 1000) * img.height,
-            width: ((box.xmax - box.xmin) / 1000) * img.width,
-            height: ((box.ymax - box.ymin) / 1000) * img.height,
-        };
-        setCompletedCrop(pixelCrop);
-    };
-
-    const handleGenerateSketch = async () => {
-        if (canvasRef.current) {
-            const sketchDataUrl = canvasRef.current.exportCanvas('image');
-            if (sketchDataUrl) {
-                handleApplySketch(sketchDataUrl, prompt);
-            }
-        }
-    };
-
-    const startResizing = (mouseDownEvent: React.MouseEvent) => {
-        mouseDownEvent.preventDefault(); // Prevent text selection
-        const startX = mouseDownEvent.clientX;
-        const startWidth = sidebarWidth;
-
-        const doDrag = (mouseMoveEvent: MouseEvent) => {
-            // Dragging left (smaller clientX) increases width because sidebar is on right
-            const newWidth = startWidth + (startX - mouseMoveEvent.clientX);
-            // Limit constraints: min 280px, max 800px
-            if (newWidth > 280 && newWidth < 800) {
-                setSidebarWidth(newWidth);
-            }
-        };
-
-        const stopDrag = () => {
-            document.removeEventListener('mousemove', doDrag);
-            document.removeEventListener('mouseup', stopDrag);
-            document.body.style.cursor = ''; // Reset cursor
-        };
-
-        document.addEventListener('mousemove', doDrag);
-        document.addEventListener('mouseup', stopDrag);
-        document.body.style.cursor = 'col-resize';
     };
 
     const renderPanel = () => {
-        // Animation wrapper for smoother panel transitions
-        const PanelWrapper = ({ children }: { children: React.ReactNode }) => (
-            <div className="animate-fade-in w-full h-full flex flex-col">
-                {children}
-            </div>
-        );
-
-        if (variations) {
-            return <PanelWrapper><VariationsPanel.Generated variations={variations} onAccept={handleAcceptVariation} onBack={() => setVariations(null)} originalImageUrl={currentImageUrl} /></PanelWrapper>
+        switch (activeTab) {
+            case 'erase':
+                return <ErasePanel 
+                    prompt={editor.prompt} 
+                    setPrompt={editor.setPrompt}
+                    brushSize={brushSize}
+                    setBrushSize={setBrushSize}
+                    tool={drawTool}
+                    setTool={setDrawTool}
+                    onGenerate={() => {
+                        const mask = getMask();
+                        if (mask) editor.handleMagicErase(mask);
+                    }}
+                    onClear={() => drawingCanvasRef.current?.clear()}
+                    onUndo={() => drawingCanvasRef.current?.undo()}
+                    onRedo={() => drawingCanvasRef.current?.redo()}
+                    onInvert={() => drawingCanvasRef.current?.invert()}
+                    isLoading={editor.isLoading}
+                    onGenerateSuggestions={() => editor.handleGeneratePromptSuggestions('replace')}
+                    onAutoSelect={(label) => editor.handleDetectObjects(label).then(boxes => drawingCanvasRef.current?.drawRects(boxes))}
+                    onMagicMaskClick={(label) => editor.handleMagicMask(label).then(mask => mask && drawingCanvasRef.current?.drawMaskImage(mask))}
+                />;
+            case 'retouch':
+                return <RetouchPanel
+                    prompt={editor.prompt} 
+                    setPrompt={editor.setPrompt}
+                    brushSize={brushSize}
+                    setBrushSize={setBrushSize}
+                    tool={drawTool}
+                    setTool={setDrawTool}
+                    onApplyRetouch={() => {
+                        const mask = getMask();
+                        if (mask) editor.handleApplyRetouch(mask);
+                    }}
+                    onApplyHeal={() => {
+                        const mask = getMask();
+                        if (mask) editor.handleApplyHeal(mask);
+                    }}
+                    onApplySelectiveAdjust={() => {
+                        const mask = getMask();
+                        if (mask) editor.handleSelectiveAdjust(mask);
+                    }}
+                    onClear={() => drawingCanvasRef.current?.clear()}
+                    onUndo={() => drawingCanvasRef.current?.undo()}
+                    onRedo={() => drawingCanvasRef.current?.redo()}
+                    onInvert={() => drawingCanvasRef.current?.invert()}
+                    isLoading={editor.isLoading}
+                    onAutoSelect={(label) => editor.handleDetectObjects(label).then(boxes => drawingCanvasRef.current?.drawRects(boxes))}
+                    onMagicMaskClick={(label) => editor.handleMagicMask(label).then(mask => mask && drawingCanvasRef.current?.drawMaskImage(mask))}
+                />;
+            case 'add-product':
+                return <AddProductPanel
+                    prompt={editor.prompt}
+                    setPrompt={editor.setPrompt}
+                    onGenerate={() => {
+                        const mask = getMask();
+                        if (mask) editor.handleApplyAddProduct(mask);
+                    }}
+                    isLoading={editor.isLoading}
+                    hasMask={true}
+                    brushSize={brushSize}
+                    setBrushSize={setBrushSize}
+                    onClear={() => drawingCanvasRef.current?.clear()}
+                    onUndo={() => drawingCanvasRef.current?.undo()}
+                    onRedo={() => drawingCanvasRef.current?.redo()}
+                    onInvert={() => drawingCanvasRef.current?.invert()}
+                    onGenerateSuggestions={() => editor.handleGeneratePromptSuggestions('add')}
+                    onAutoSelect={(label) => editor.handleDetectObjects(label).then(boxes => drawingCanvasRef.current?.drawRects(boxes))}
+                    onMagicMaskClick={(label) => editor.handleMagicMask(label).then(mask => mask && drawingCanvasRef.current?.drawMaskImage(mask))}
+                    tool={drawTool}
+                    setTool={setDrawTool}
+                />;
+            case 'crop':
+                return <CropPanel
+                    onApplyCrop={() => {
+                        if (completedCrop && imageRef.current) {
+                            editor.handleApplyCrop(completedCrop, imageRef.current);
+                        }
+                    }}
+                    onSetAspect={(aspect) => {
+                        setCropAspect(aspect);
+                        if (aspect && imageRef.current) {
+                            const { width, height } = imageRef.current;
+                            const newCrop = makeAspectCrop({ unit: '%', width: 90 }, aspect, width, height);
+                            setCrop(newCrop);
+                            setCompletedCrop(convertToPixelCrop(newCrop, width, height));
+                        } else {
+                            setCrop(undefined);
+                            setCompletedCrop(undefined);
+                        }
+                    }}
+                    isLoading={editor.isLoading}
+                    isCropping={!!completedCrop}
+                    onAutoCrop={(box) => {
+                        if (!imageRef.current) return;
+                        const { width, height } = imageRef.current;
+                        const c: Crop = {
+                            unit: 'px',
+                            x: (box.xmin / 1000) * width,
+                            y: (box.ymin / 1000) * height,
+                            width: ((box.xmax - box.xmin) / 1000) * width,
+                            height: ((box.ymax - box.ymin) / 1000) * height,
+                        };
+                        setCrop(c);
+                        setCompletedCrop(c as PixelCrop);
+                    }}
+                />;
+            case 'expand':
+                return <ExpandPanel onApplyExpand={editor.handleApplyExpand} isLoading={editor.isLoading} />;
+            case 'upscale':
+                return <UpscalePanel onApplyUpscale={editor.handleApplyUpscale} isLoading={editor.isLoading} />;
+            case 'enhance':
+                return <EnhancePanel onApplyEnhance={editor.handleApplyEnhance} isLoading={editor.isLoading} />;
+            case 'restore':
+                return <RestorePanel onApplyRestore={editor.handleApplyRestore} isLoading={editor.isLoading} />;
+            case 'background':
+                return <BackgroundPanel 
+                    onRemoveBackground={editor.handleRemoveBackground} 
+                    onReplaceBackground={editor.handleReplaceBackground} 
+                    isLoading={editor.isLoading} 
+                    hasTransparentBackground={hasTransparentBackground} 
+                />;
+            case 'product':
+                return <ProductPanel 
+                    onIsolate={editor.handleRemoveBackground} 
+                    onSetBackground={editor.handleSetProductBackground} 
+                    onAddShadow={editor.handleAddProductShadow} 
+                    isLoading={editor.isLoading} 
+                    hasTransparentBackground={hasTransparentBackground} 
+                />;
+            case 'cardify':
+                return <CardifyPanel onApplyCardify={editor.handleApplyCardify} isLoading={editor.isLoading} currentImage={currentItem?.file} />;
+            case 'memeify':
+                return <MemePanel />;
+            case 'text':
+                return <TextPanel onApplyText={editor.handleApplyText} isLoading={editor.isLoading} />;
+            case 'adjust':
+                return <AdjustmentPanel onApplyAdjustment={editor.handleApplyAdjustment} isLoading={editor.isLoading} />;
+            case 'filters':
+                return <FilterPanel onApplyFilter={editor.handleApplyFilter} onApplyLuckyFilter={editor.handleApplyLuckyFilter} isLoading={editor.isLoading} />;
+            case 'color':
+                return <ColorPanel isLoading={editor.isLoading} />;
+            case 'style-transfer':
+                return <StyleTransferPanel isLoading={editor.isLoading} />;
+            case 'captions':
+                return <CaptionPanel onSelectSuggestion={(text) => navigator.clipboard.writeText(text).then(() => alert(t('copied')))} isLoading={editor.isLoading} />;
+            case 'variations':
+                return <VariationsPanel.Generate onGenerate={editor.handleGenerateVariations} isLoading={editor.isLoading} />;
+            case 'gif':
+                return <GifPanel history={history} isLoading={editor.isLoading} />;
+            case 'sketch':
+                return <SketchPanel 
+                    prompt={editor.prompt} 
+                    setPrompt={editor.setPrompt}
+                    brushSize={brushSize}
+                    setBrushSize={setBrushSize}
+                    color={sketchColor}
+                    setColor={setSketchColor}
+                    tool={drawTool}
+                    setTool={setDrawTool}
+                    onClear={() => drawingCanvasRef.current?.clear()}
+                    onUndo={() => drawingCanvasRef.current?.undo()}
+                    onRedo={() => drawingCanvasRef.current?.redo()}
+                    onGenerate={() => {
+                        const sketch = getDrawing();
+                        if (sketch) editor.handleApplySketch(sketch, editor.prompt);
+                    }}
+                    isLoading={editor.isLoading} 
+                />;
+            case 'focus':
+                return <FocusPanel onApplyFocus={editor.handleApplyFocus} isLoading={editor.isLoading} />;
+            case 'merge':
+                return <MergePanel isLoading={editor.isLoading} />;
+            default:
+                return <EmptyStatePanel />;
         }
-        
-        let content;
-        switch(activeTab) {
-            case 'erase': content = <ErasePanel prompt={prompt} setPrompt={setPrompt} brushSize={brushSize} setBrushSize={setBrushSize} onGenerate={() => handleMagicErase(maskImageUrl!)} onClear={() => canvasRef.current?.clear()} onUndo={() => canvasRef.current?.undo()} onRedo={() => canvasRef.current?.redo()} onInvert={() => canvasRef.current?.invert()} isLoading={isLoading} onGenerateSuggestions={() => handleGeneratePromptSuggestions('replace')} onAutoSelect={handleAutoSelect} onMagicMaskClick={handleMagicMaskRequest} tool={tool} setTool={setTool} />; break;
-            case 'retouch': content = <RetouchPanel prompt={prompt} setPrompt={setPrompt} brushSize={brushSize} setBrushSize={setBrushSize} onApplyRetouch={() => handleApplyRetouch(maskImageUrl!)} onApplySelectiveAdjust={() => handleSelectiveAdjust(maskImageUrl!)} onApplyHeal={() => handleApplyHeal(maskImageUrl!)} onClear={() => canvasRef.current?.clear()} onUndo={() => canvasRef.current?.undo()} onRedo={() => canvasRef.current?.redo()} onInvert={() => canvasRef.current?.invert()} isLoading={isLoading} onAutoSelect={handleAutoSelect} onMagicMaskClick={handleMagicMaskRequest} tool={tool} setTool={setTool} />; break;
-            case 'sketch': content = <SketchPanel prompt={prompt} setPrompt={setPrompt} brushSize={brushSize} setBrushSize={setBrushSize} color={sketchColor} setColor={setSketchColor} onGenerate={handleGenerateSketch} onClear={() => canvasRef.current?.clear()} onUndo={() => canvasRef.current?.undo()} onRedo={() => canvasRef.current?.redo()} isLoading={isLoading} tool={tool} setTool={setTool} />; break;
-            case 'focus': content = <FocusPanel onApplyFocus={handleApplyFocus} isLoading={isLoading} />; break;
-            case 'text': content = <TextPanel onApplyText={handleApplyText} isLoading={isLoading} initialText={textToApply} />; break;
-            case 'adjust': content = <AdjustmentPanel onApplyAdjustment={handleApplyAdjustment} isLoading={isLoading} />; break;
-            case 'color': content = <ColorPanel isLoading={isLoading} />; break;
-            case 'filters': content = <FilterPanel onApplyFilter={handleApplyFilter} onApplyLuckyFilter={handleApplyLuckyFilter} isLoading={isLoading} />; break;
-            case 'style-transfer': content = <StyleTransferPanel isLoading={isLoading} />; break;
-            case 'crop': content = <CropPanel onApplyCrop={() => handleApplyCrop(completedCrop!, imgRef.current!)} onSetAspect={setAspect} isLoading={isLoading} isCropping={!!completedCrop} onAutoCrop={handleAutoCrop} />; break;
-            case 'expand': content = <ExpandPanel onApplyExpand={handleApplyExpand} isLoading={isLoading} />; break;
-            case 'variations': content = <VariationsPanel.Generate isLoading={isLoading} onGenerate={async (creativity) => { const results = await handleGenerateVariations(creativity); if (results) { setVariations(results); } }} />; break;
-            case 'upscale': content = <UpscalePanel onApplyUpscale={handleApplyUpscale} isLoading={isLoading} />; break;
-            case 'enhance': content = <EnhancePanel onApplyEnhance={handleApplyEnhance} isLoading={isLoading} />; break;
-            case 'restore': content = <RestorePanel onApplyRestore={handleApplyRestore} isLoading={isLoading} />; break;
-            case 'background': content = <BackgroundPanel onRemoveBackground={handleRemoveBackground} onReplaceBackground={handleReplaceBackground} isLoading={isLoading} hasTransparentBackground={hasTransparentBackground} />; break;
-            case 'product': content = <ProductPanel onIsolate={handleRemoveBackground} onSetBackground={handleSetProductBackground} onAddShadow={handleAddProductShadow} isLoading={isLoading} hasTransparentBackground={hasTransparentBackground} />; break;
-            case 'add-product': content = <AddProductPanel prompt={prompt} setPrompt={setPrompt} onGenerate={() => handleApplyAddProduct(maskImageUrl!)} isLoading={isLoading} hasMask={!!maskImageUrl} brushSize={brushSize} setBrushSize={setBrushSize} onClear={() => canvasRef.current?.clear()} onUndo={() => canvasRef.current?.undo()} onRedo={() => canvasRef.current?.redo()} onInvert={() => canvasRef.current?.invert()} onGenerateSuggestions={() => handleGeneratePromptSuggestions('add')} onAutoSelect={handleAutoSelect} onMagicMaskClick={handleMagicMaskRequest} tool={tool} setTool={setTool} />; break;
-            case 'cardify': content = <CardifyPanel onApplyCardify={(prompt) => handleApplyCardify(prompt)} isLoading={isLoading} currentImage={currentImage} />; break;
-            case 'memeify': content = <MemePanel />; break;
-            case 'captions': content = <CaptionPanel onSelectSuggestion={(text) => setTextToApply(text)} isLoading={isLoading} />; break;
-            case 'gif': content = <GifPanel history={history} isLoading={isLoading} />; break;
-            default: content = <EmptyStatePanel />; break;
-        }
-        
-        return <PanelWrapper key={activeTab}>{content}</PanelWrapper>;
     };
 
     return (
-        <div className="flex flex-col lg:flex-row h-full w-full gap-0 relative rounded-3xl overflow-hidden border border-white/20 dark:border-white/10 shadow-2xl">
-            {/* Main Canvas Area - Clean, full screen */}
-            {/* Using a semi-transparent background to allow global theme (Matrix/Nebula) to show through slightly, but opaque enough for editing contrast */}
-            <div ref={imageContainerRef} className="flex-grow relative bg-gray-50/50 dark:bg-black/20 overflow-hidden checkerboard-bg group backdrop-blur-sm">
-                {currentImageUrl ? (
+        <div className="flex flex-col md:flex-row h-full w-full gap-4 lg:gap-6 items-stretch">
+            {/* Main Canvas Area */}
+            <div className="flex-grow relative bg-gray-100 dark:bg-black/20 rounded-3xl overflow-hidden shadow-inner border border-white/20 dark:border-white/10 checkerboard-bg group min-h-[50vh]">
+                {currentImageUrl && (
                     <ZoomPanWrapper
                         ref={zoomPanRef}
-                        imageRef={imgRef}
+                        imageRef={imageRef}
                         imageUrl={currentImageUrl}
-                        minScale={0.1}
-                        maxScale={8}
+                        panningAllowed={isPanMode}
                     >
-                        <div className="relative shadow-2xl">
-                            <img
-                                ref={imgRef}
-                                src={currentImageUrl}
-                                alt="Editing"
-                                className={`max-w-none block touch-none select-none ${activeTab === 'filters' || activeTab === 'adjust' ? 'opacity-0' : 'opacity-100'}`}
-                                draggable={false}
-                                style={{
-                                    filter: showCompare ? 'grayscale(100%) blur(2px)' : 'none',
-                                    transition: 'filter 0.2s ease'
-                                }}
-                            />
-                            
+                        <div className="relative inline-block">
+                            {activeTab === 'crop' ? (
+                                <ReactCrop
+                                    crop={crop}
+                                    onChange={(c) => setCrop(c)}
+                                    onComplete={(c) => setCompletedCrop(c)}
+                                    aspect={cropAspect}
+                                    className="max-h-full max-w-full"
+                                >
+                                    <img 
+                                        ref={imageRef} 
+                                        src={currentImageUrl} 
+                                        alt="Editing" 
+                                        className="max-h-[80vh] max-w-full object-contain block select-none pointer-events-none" 
+                                        style={{ transformOrigin: 'top left' }} // Ensure transforms apply correctly
+                                    />
+                                </ReactCrop>
+                            ) : (
+                                <img 
+                                    ref={imageRef} 
+                                    src={currentImageUrl} 
+                                    alt="Editing" 
+                                    className="max-h-[80vh] max-w-full object-contain block select-none pointer-events-none" 
+                                    style={{ transformOrigin: 'top left' }}
+                                />
+                            )}
+
+                            {/* Drawing Layer for Erase/Retouch/Sketch/AddProduct - disabled pointer events if panning */}
+                            {['erase', 'retouch', 'add-product', 'sketch'].includes(activeTab || '') && imageRef.current && (
+                                <div className={`absolute inset-0 z-10 ${isPanMode ? 'pointer-events-none' : ''}`}>
+                                    <DrawingCanvas 
+                                        ref={drawingCanvasRef}
+                                        imageElement={imageRef.current}
+                                        brushSize={brushSize}
+                                        brushColor={brushColor}
+                                        onDrawEnd={handleDrawEnd} 
+                                        tool={drawTool}
+                                    />
+                                </div>
+                            )}
+
                             {/* Compare Slider Overlay */}
-                            {(activeTab === 'filters' || activeTab === 'adjust') && currentImageUrl && originalImageUrl && (
-                                <div className="absolute inset-0 w-full h-full">
+                            {isCompareVisible && originalImageUrl && activeTab !== 'crop' && (
+                                <div className="absolute inset-0 z-20 pointer-events-auto">
                                     <CompareSlider 
                                         originalImage={originalImageUrl} 
                                         currentImage={currentImageUrl} 
                                     />
                                 </div>
                             )}
-
-                            {/* True "Peek" / Compare Overlay for standard editing */}
-                            {showCompare && !activeTab?.includes('filters') && !activeTab?.includes('adjust') && originalImageUrl && (
-                                 <div className="absolute inset-0 z-50 pointer-events-none">
-                                    <img 
-                                        src={originalImageUrl} 
-                                        alt="Original" 
-                                        className="w-full h-full object-contain" 
-                                    />
-                                </div>
-                            )}
-
-                            {/* Drawing Canvas Layer */}
-                            {/* Hide drawing canvas when peeking/comparing so we see the original cleanly */}
-                            {!showCompare && (activeTab === 'erase' || activeTab === 'retouch' || activeTab === 'add-product' || activeTab === 'sketch') && imgRef.current && (
-                                <div className="absolute inset-0 z-10">
-                                    <DrawingCanvas
-                                        ref={canvasRef}
-                                        imageElement={imgRef.current}
-                                        brushSize={brushSize}
-                                        brushColor={activeTab === 'sketch' ? sketchColor : 'rgba(255, 0, 0, 0.5)'}
-                                        tool={tool}
-                                        onDrawEnd={setMaskImageUrl}
-                                    />
-                                </div>
-                            )}
-                            
-                            {/* Crop Tool Layer */}
-                            {activeTab === 'crop' && crop && !showCompare && (
-                                <div className="absolute inset-0 z-20">
-                                    <ReactCrop
-                                        crop={crop}
-                                        onChange={(_, percentCrop) => setCrop(percentCrop)}
-                                        onComplete={(c) => setCompletedCrop(c)}
-                                        aspect={aspect}
-                                        className="h-full"
-                                    >
-                                        <div className="w-full h-full" /> 
-                                    </ReactCrop>
-                                </div>
-                            )}
                         </div>
                     </ZoomPanWrapper>
-                ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                        {t('errorNoImageToEdit')}
-                    </div>
                 )}
 
-                {/* Consolidated Bottom HUD Control Bar */}
-                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 p-2 rounded-2xl bg-black/60 backdrop-blur-md border border-white/10 z-30 shadow-xl transition-all duration-300 hover:bg-black/70">
-                    
-                    {/* Zoom Controls */}
-                    <div className="flex items-center gap-1">
-                        <button onClick={() => zoomPanRef.current?.zoomOut()} className="p-2 text-white/80 hover:text-white transition-colors rounded-lg hover:bg-white/10" data-tooltip-id="app-tooltip" data-tooltip-content={t('zoomOut')}>
-                            <ZoomOutIcon className="w-5 h-5" />
-                        </button>
-                        <button onClick={() => zoomPanRef.current?.reset()} className="p-2 text-white/80 hover:text-white transition-colors rounded-lg hover:bg-white/10" data-tooltip-id="app-tooltip" data-tooltip-content={t('fitToScreen')}>
-                            <FitToScreenIcon className="w-5 h-5" />
-                        </button>
-                        <button onClick={() => zoomPanRef.current?.zoomIn()} className="p-2 text-white/80 hover:text-white transition-colors rounded-lg hover:bg-white/10" data-tooltip-id="app-tooltip" data-tooltip-content={t('zoomIn')}>
-                            <ZoomInIcon className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    <div className="w-px h-6 bg-white/20"></div>
-
-                    {/* Transform Controls */}
-                    <div className="flex items-center gap-1">
-                        <button onClick={() => zoomPanRef.current?.rotateLeft()} className="p-2 text-white/80 hover:text-white transition-colors rounded-lg hover:bg-white/10" title="Rotate Left">
-                            <RotateLeftIcon className="w-5 h-5" />
-                        </button>
-                        <button onClick={() => zoomPanRef.current?.flipHorizontal()} className="p-2 text-white/80 hover:text-white transition-colors rounded-lg hover:bg-white/10" title="Flip Horizontal">
-                            <FlipHorizontalIcon className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    <div className="w-px h-6 bg-white/20"></div>
-
-                    {/* Compare Button */}
-                    <button
-                        onClick={() => setIsCompareViewActive(!isCompareViewActive)}
-                        className={`p-2 rounded-lg transition-all ${isCompareViewActive ? 'bg-theme-accent text-white' : 'text-white/80 hover:text-white hover:bg-white/10'}`}
-                        data-tooltip-id="app-tooltip"
-                        data-tooltip-content={t('compareWithOriginal')}
+                {/* Floating Controls */}
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 p-2 bg-white/80 dark:bg-black/60 backdrop-blur-md rounded-2xl shadow-lg border border-white/20 z-30 transition-opacity duration-300 opacity-0 group-hover:opacity-100">
+                    <button onClick={handleUndo} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors" data-tooltip-id="app-tooltip" data-tooltip-content={t('undo')}>
+                        <UndoIcon className="w-6 h-6" />
+                    </button>
+                    <button onClick={handleRedo} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors" data-tooltip-id="app-tooltip" data-tooltip-content={t('redo')}>
+                        <RedoIcon className="w-6 h-6" />
+                    </button>
+                    <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+                    <button 
+                        onClick={() => setIsPanMode(!isPanMode)} 
+                        className={`p-2 rounded-full transition-colors ${isPanMode ? 'bg-theme-accent text-white' : 'hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200'}`}
+                        data-tooltip-id="app-tooltip" 
+                        data-tooltip-content={t('shortcutsPan')}
                     >
-                        <EyeIcon className="w-5 h-5" />
+                        <HandIcon className="w-6 h-6" />
+                    </button>
+                    <button onClick={() => zoomPanRef.current?.zoomOut()} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors" data-tooltip-id="app-tooltip" data-tooltip-content={t('zoomOut')}>
+                        <ZoomOutIcon className="w-6 h-6" />
+                    </button>
+                    <button onClick={() => zoomPanRef.current?.reset()} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors" data-tooltip-id="app-tooltip" data-tooltip-content={t('fitToScreen')}>
+                        <FitToScreenIcon className="w-6 h-6" />
+                    </button>
+                    <button onClick={() => zoomPanRef.current?.zoomIn()} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors" data-tooltip-id="app-tooltip" data-tooltip-content={t('zoomIn')}>
+                        <ZoomInIcon className="w-6 h-6" />
+                    </button>
+                    <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+                    <button onClick={() => setIsCompareVisible(!isCompareVisible)} className={`p-2 rounded-full transition-colors ${isCompareVisible ? 'bg-theme-accent text-white' : 'hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200'}`} data-tooltip-id="app-tooltip" data-tooltip-content={t('compareWithOriginal')}>
+                        <EyeIcon className="w-6 h-6" />
                     </button>
                 </div>
 
-                {isLoading && (
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center gap-4 animate-fade-in">
+                {/* Loading Overlay */}
+                {editor.isLoading && (
+                    <div className="absolute inset-0 bg-black/60 z-50 flex flex-col items-center justify-center backdrop-blur-sm animate-fade-in">
                         <Spinner />
-                        <p className="text-white font-bold text-lg animate-pulse">{loadingMessage}</p>
+                        <p className="text-white mt-4 font-semibold text-lg drop-shadow-md animate-pulse">{editor.loadingMessage}</p>
+                    </div>
+                )}
+                
+                {/* Error Toast */}
+                {editor.error && (
+                    <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-3 rounded-xl shadow-xl flex items-center gap-3 animate-slide-down z-50 max-w-md">
+                        <span>{editor.error}</span>
+                        <button onClick={() => editor.setError(null)} className="hover:bg-red-600 p-1 rounded-full"><ResetIcon className="w-5 h-5" /></button>
                     </div>
                 )}
             </div>
 
-            {/* Resize Handle (Desktop Only) */}
+            {/* Sidebar Panel */}
             {!isPanelCollapsed && (
-                <div 
-                    className="w-4 flex-shrink-0 cursor-col-resize hover:bg-theme-accent/20 transition-colors flex items-center justify-center hidden lg:flex relative z-20 group border-l border-white/5 bg-gray-50/50 dark:bg-black/20"
-                    onMouseDown={startResizing}
-                >
-                    {/* Visual Grip Indicator */}
-                    <div className="w-1 h-8 bg-gray-300 dark:bg-gray-600 rounded-full group-hover:bg-theme-accent transition-colors shadow-sm" />
-                </div>
-            )}
-
-            {/* Right Sidebar Panel */}
-            <aside 
-                className={`flex-shrink-0 flex flex-col gap-4 transition-all duration-300 bg-white/40 dark:bg-black/40 backdrop-blur-xl border-l border-white/20 dark:border-white/10 ${isPanelCollapsed ? 'w-0 overflow-hidden opacity-0' : 'opacity-100'}`}
-                style={{ width: isPanelCollapsed ? 0 : (window.innerWidth < 1024 ? '100%' : `${sidebarWidth}px`) }}
-            >
-                <div className="flex flex-col h-full overflow-hidden">
-                    <div className="flex-grow overflow-y-auto custom-scrollbar relative p-4">
-                       {renderPanel()}
+                <div className="w-full md:w-80 lg:w-96 flex-shrink-0 glass-panel flex flex-col overflow-hidden transition-all duration-300 h-2/5 md:h-auto">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+                        <div key={activeTab} className="h-full animate-fade-in-slide">
+                             {renderPanel()}
+                        </div>
                     </div>
                     
                     {/* Bottom Actions */}
-                    <div className="p-4 border-t border-gray-200/50 dark:border-gray-700/50 bg-white/50 dark:bg-black/20 backdrop-blur-md flex items-center justify-between gap-2">
-                        <div className="flex gap-2">
-                            <button 
-                                onClick={handleUndo} 
-                                disabled={!canUndo} 
-                                className="p-3 rounded-xl bg-white/50 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 disabled:opacity-30 transition-all border border-gray-200/50 dark:border-white/5"
-                                data-tooltip-id="app-tooltip"
-                                data-tooltip-content={t('undo')}
-                            >
-                                <UndoIcon className="w-5 h-5 text-gray-800 dark:text-white" />
+                    <div className="p-4 border-t border-gray-200/50 dark:border-white/10 bg-white/50 dark:bg-black/20 flex flex-col gap-2 backdrop-blur-md">
+                        <button onClick={handleReset} className="w-full py-3 rounded-xl font-semibold text-gray-600 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400 transition-colors text-sm flex items-center justify-center gap-2">
+                            <ResetIcon className="w-5 h-5" /> {t('resetAllChanges')}
+                        </button>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button onClick={() => handleDownload()} className="py-3 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 font-bold rounded-xl hover:bg-gray-300 dark:hover:bg-white/20 transition-all active:scale-95 flex items-center justify-center gap-2 text-sm">
+                                <DownloadIcon className="w-5 h-5" /> {t('download')}
                             </button>
                             <button 
-                                onClick={handleRedo} 
-                                disabled={!canRedo} 
-                                className="p-3 rounded-xl bg-white/50 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 disabled:opacity-30 transition-all border border-gray-200/50 dark:border-white/5"
-                                data-tooltip-id="app-tooltip"
-                                data-tooltip-content={t('redo')}
+                                onClick={onSaveToCreations} 
+                                disabled={isSaving || isSavingToCreations || isSaved} 
+                                className={`py-3 font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:transform-none ${
+                                    isSaved 
+                                    ? 'bg-green-500 text-white shadow-green-500/30' 
+                                    : 'bg-theme-gradient text-white shadow-theme-accent/20 hover:shadow-xl hover:shadow-theme-accent/40 hover:-translate-y-0.5 active:scale-95'
+                                }`}
                             >
-                                <RedoIcon className="w-5 h-5 text-gray-800 dark:text-white" />
+                                {isSaving || isSavingToCreations ? (
+                                    <Spinner />
+                                ) : isSaved ? (
+                                    <CheckCircleIcon className="w-5 h-5" />
+                                ) : (
+                                    <SaveIcon className="w-5 h-5" />
+                                )}
+                                {isSaved ? t('gallerySaved') : t('saveToCreations')}
                             </button>
-                             <button 
-                                onClick={handleReset} 
-                                className="p-3 rounded-xl bg-white/50 dark:bg-white/5 hover:bg-red-100 dark:hover:bg-red-900/30 text-gray-800 dark:text-white hover:text-red-600 dark:hover:text-red-400 transition-all border border-gray-200/50 dark:border-white/5"
-                                data-tooltip-id="app-tooltip"
-                                data-tooltip-content={t('reset')}
-                            >
-                                <ResetIcon className="w-5 h-5" />
-                            </button>
-                        </div>
-                        
-                        <div className="flex gap-2 relative" ref={saveButtonRef}>
-                             <button
-                                onClick={() => setIsSaveMenuOpen(!isSaveMenuOpen)}
-                                className={`flex items-center gap-2 px-5 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold rounded-xl hover:scale-105 active:scale-95 transition-all shadow-lg ${isSaveSuccess ? 'bg-green-500 dark:bg-green-500 text-white dark:text-white' : ''}`}
-                            >
-                                {isSaveSuccess ? <CheckCircleIcon className="w-5 h-5" /> : <SaveIcon className="w-5 h-5" />}
-                                <span>{isSaveSuccess ? t('gallerySaved') : t('gallerySave')}</span>
-                            </button>
-                            
-                            {isSaveMenuOpen && (
-                                <div className="absolute bottom-full right-0 mb-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden animate-fade-in z-50">
-                                    <button onClick={onSave} className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-sm font-medium">
-                                        <SaveIcon className="w-4 h-4" /> {t('saveToCreations')}
-                                    </button>
-                                    <button onClick={() => { handleDownload(); setIsSaveMenuOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-sm font-medium">
-                                        <DownloadIcon className="w-4 h-4" /> {t('downloadImage')}
-                                    </button>
-                                    <button onClick={() => { handleCopyToClipboard(); setIsSaveMenuOpen(false); }} className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-sm font-medium">
-                                        <CopyIcon className="w-4 h-4" /> {t('copyToClipboard')}
-                                    </button>
-                                </div>
-                            )}
                         </div>
                     </div>
-                </div>
-            </aside>
-            
-            {isCopySuccess && (
-                <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-black/80 text-white px-4 py-2 rounded-full text-sm font-bold animate-fade-in z-50 flex items-center gap-2 backdrop-blur-md">
-                    <CheckCircleIcon className="w-4 h-4 text-green-400" />
-                    {t('copied')}
-                </div>
-            )}
-            
-            {activeTab === 'color' && isPickingColor && (
-                <div 
-                    className="fixed inset-0 z-[60] cursor-none" 
-                    onClick={handleColorPick}
-                    onMouseMove={handleMouseMoveForPicker}
-                >
-                    {eyedropperPreview && (
-                        <div 
-                            className="fixed pointer-events-none w-24 h-24 rounded-full border-4 border-white shadow-xl overflow-hidden bg-white z-[70]"
-                            style={{ 
-                                left: eyedropperPreview.x, 
-                                top: eyedropperPreview.y, 
-                                transform: 'translate(-50%, -50%)' 
-                            }}
-                        >
-                            <div 
-                                className="w-full h-full"
-                                style={{ backgroundColor: eyedropperPreview.color }}
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-1 h-1 bg-black/50 rounded-full" />
-                            </div>
-                            <div className="absolute bottom-2 left-0 right-0 text-center text-[10px] font-mono font-bold bg-black/50 text-white py-0.5">
-                                {eyedropperPreview.color}
-                            </div>
-                        </div>
-                    )}
                 </div>
             )}
         </div>
     );
 };
 
-export default React.memo(EditorView);
+// Internal helper for DrawingCanvas prop
+const handleDrawEnd = () => {};
+
+export default EditorView;

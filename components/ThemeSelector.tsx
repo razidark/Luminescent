@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -18,11 +19,11 @@ interface ThemeGroup {
 const themeGroups: ThemeGroup[] = [
     {
         labelKey: 'themeGroupFeatured',
-        keys: ['rainbow', 'luminescence', 'midnight']
+        keys: ['rainbow', 'luminescence', 'midnight', 'royal']
     },
     {
         labelKey: 'themeGroupWarm',
-        keys: ['crimson', 'sunset', 'gold', 'neon', 'lime']
+        keys: ['crimson', 'sunset', 'gold', 'coffee', 'neon', 'lime']
     },
     {
         labelKey: 'themeGroupCool',

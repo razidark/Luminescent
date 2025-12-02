@@ -1,4 +1,3 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -7,7 +6,7 @@
 import * as React from 'react';
 import { type Tab } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
-import { PaintBrushIcon, CropIcon, ExpandIcon, AdjustIcon, FilterIcon, UpscaleIcon, RemoveBgIcon, CardIcon, TextIcon, MagicWandIcon, MemeIcon, ProductIcon, RetouchIcon, AddProductIcon, PaletteIcon, StyleTransferIcon, CaptionIcon, VariationsIcon, ChatIcon, GifIcon, EnhanceIcon, PencilIcon, FocusIcon } from './icons';
+import { PaintBrushIcon, CropIcon, ExpandIcon, AdjustIcon, FilterIcon, UpscaleIcon, RemoveBgIcon, CardIcon, TextIcon, MagicWandIcon, MemeIcon, ProductIcon, RetouchIcon, AddProductIcon, PaletteIcon, StyleTransferIcon, CaptionIcon, VariationsIcon, ChatIcon, GifIcon, EnhanceIcon, PencilIcon, FocusIcon, MergeIcon } from './icons';
 
 interface ToolbarProps {
   activeTab: Tab | null;
@@ -25,6 +24,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeTab, setActiveTab }) => {
     {id: 'erase', name: t('toolErase'), icon: <PaintBrushIcon />},
     {id: 'sketch', name: t('toolSketch'), icon: <PencilIcon />},
     {id: 'retouch', name: t('toolRetouch'), icon: <RetouchIcon />},
+    {id: 'merge', name: t('toolMerge'), icon: <MergeIcon />},
     {id: 'restore', name: t('toolRestore'), icon: <MagicWandIcon />},
     {id: 'background', name: t('toolBackground'), icon: <RemoveBgIcon />},
     {id: 'product', name: t('toolProductStudio'), icon: <ProductIcon />},
@@ -46,7 +46,6 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeTab, setActiveTab }) => {
   
   const handleWheel = (e: React.WheelEvent) => {
     if (scrollRef.current) {
-        // Boost scroll speed slightly for better horizontal navigation
         scrollRef.current.scrollLeft += e.deltaY * 1.5;
     }
   };
@@ -56,21 +55,25 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeTab, setActiveTab }) => {
         <div 
             ref={scrollRef}
             onWheel={handleWheel}
-            className="glass rounded-2xl p-1.5 flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth shadow-2xl border border-white/30 dark:border-white/10 backdrop-blur-xl"
+            className="glass rounded-2xl p-2 flex items-center gap-3 overflow-x-auto no-scrollbar scroll-smooth shadow-2xl border border-white/30 dark:border-white/10 backdrop-blur-xl relative"
             style={{
-                maskImage: 'linear-gradient(to right, transparent, black 20px, black 95%, transparent)',
-                WebkitMaskImage: 'linear-gradient(to right, transparent, black 20px, black 95%, transparent)'
+                // Enhanced gradient mask for better scroll indication on both sides
+                maskImage: 'linear-gradient(to right, transparent 0%, black 40px, black calc(100% - 40px), transparent 100%)',
+                WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 40px, black calc(100% - 40px), transparent 100%)'
             }}
         >
+            {/* Added spacer to ensure first/last items aren't cut off by mask */}
+            <div className="w-4 flex-shrink-0" />
+            
             {tabs.map(tab => (
                 <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     data-tooltip-id="app-tooltip"
                     data-tooltip-content={tab.name}
-                    className={`flex flex-col items-center justify-center gap-1.5 px-3 py-3 rounded-xl transition-all duration-300 ease-in-out group min-w-[85px] relative overflow-hidden ${
+                    className={`flex flex-col items-center justify-center gap-1.5 px-3 py-3 rounded-xl transition-all duration-300 ease-in-out group min-w-[90px] relative overflow-hidden ${
                         activeTab === tab.id 
-                        ? 'bg-white dark:bg-white/10 shadow-lg scale-105' 
+                        ? 'bg-white dark:bg-white/10 shadow-lg scale-105 border border-white/50 dark:border-white/20' 
                         : 'hover:bg-white/40 dark:hover:bg-white/5 hover:scale-100 opacity-80 hover:opacity-100'
                     }`}
                 >
@@ -79,16 +82,18 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeTab, setActiveTab }) => {
                          <div className="absolute inset-0 bg-gradient-to-br from-theme-accent/10 to-transparent pointer-events-none" />
                     )}
                     
-                    <div className={`w-6 h-6 transition-all duration-300 ${
+                    <div className={`w-12 h-12 transition-all duration-300 ${
                         activeTab === tab.id 
                         ? 'text-theme-accent scale-110 drop-shadow-md filter' 
                         : 'text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white'
                     }`}>
-                        {tab.icon}
+                        {React.isValidElement(tab.icon) 
+                            ? React.cloneElement(tab.icon as React.ReactElement<any>, { className: 'w-full h-full' }) 
+                            : tab.icon}
                     </div>
-                    <span className={`text-[10px] font-bold tracking-wide uppercase leading-none transition-colors ${
+                    <span className={`text-[11px] font-bold tracking-wide uppercase leading-none transition-colors ${
                         activeTab === tab.id 
-                        ? 'text-theme-accent' 
+                        ? 'text-theme-gradient animate-gradient-move' 
                         : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-800 dark:group-hover:text-gray-200'
                     }`}>
                         {tab.name}
@@ -100,6 +105,9 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeTab, setActiveTab }) => {
                     )}
                 </button>
             ))}
+            
+            {/* Added spacer to ensure first/last items aren't cut off by mask */}
+            <div className="w-4 flex-shrink-0" />
         </div>
     </nav>
   );

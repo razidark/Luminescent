@@ -9,7 +9,7 @@ import { UploadIcon, PaintBrushIcon, FilterIcon, RemoveBgIcon, ExpandIcon, Upsca
 import { type Tab, type Creation } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import TiltCard from './TiltCard';
-import { getAllCreations } from '../utils/db';
+import { getRecentCreations } from '../utils/db';
 
 interface StartScreenProps {
   onFileSelect: (file: File, targetTab: Tab) => void;
@@ -32,7 +32,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
   const [currentText, setCurrentText] = React.useState('');
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [typingSpeed, setTypingSpeed] = React.useState(150);
-
+  
   React.useEffect(() => {
     const handleType = () => {
       const fullText = words[currentWordIndex];
@@ -57,13 +57,15 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
     return () => clearTimeout(timer);
   }, [currentText, isDeleting, currentWordIndex, words, typingSpeed]);
 
-  // Load recent creations
+  // Load recent creations efficiently
   React.useEffect(() => {
       const loadRecents = async () => {
           try {
-              const allCreations = await getAllCreations();
-              // Filter only images for direct editing, take top 4
-              const recentImages = allCreations.filter(c => c.type === 'image').slice(0, 4);
+              // Efficiently fetch only the 4 most recent creations using a cursor
+              const recentItems = await getRecentCreations(4);
+              // Filter only images for direct editing (though getRecentCreations returns mixed, we filter here for safety if needed, or just display mixed)
+              // For editing flow, we prefer images.
+              const recentImages = recentItems.filter(c => c.type === 'image');
               setRecentCreations(recentImages);
           } catch (e) {
               console.error("Failed to load recent creations", e);
@@ -127,8 +129,8 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
           onFileSelect(file, 'erase');
       }
   };
-
-  const iconClassName = "w-6 h-6 text-gray-600 dark:text-gray-400 group-hover:text-white transition-colors duration-300";
+  
+  const iconClassName = "w-10 h-10 text-gray-600 dark:text-gray-400 group-hover:text-white transition-colors duration-300";
 
   const features: { id: Tab, icon: React.ReactNode, title: string, description: string }[] = [
     { 
@@ -272,27 +274,31 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
 
   return (
     <div 
-      className={`w-full max-w-6xl mx-auto text-center p-8 transition-all duration-300 rounded-2xl border-2 relative overflow-hidden ${isDraggingOver ? 'bg-theme-accent/10 border-dashed border-theme-accent' : 'border-transparent'}`}
+      className={`w-full max-w-6xl mx-auto text-center p-8 transition-all duration-300 rounded-3xl border-4 relative overflow-hidden ${isDraggingOver ? 'bg-theme-accent/10 border-dashed border-theme-accent scale-[1.02] shadow-2xl' : 'border-transparent'}`}
       onDragOver={(e) => { e.preventDefault(); setIsDraggingOver(true); }}
       onDragLeave={() => setIsDraggingOver(false)}
       onDrop={handleDrop}
     >
-      {/* Background Particles */}
+      {/* Background Particles - Pure CSS Animation for Performance */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-         {Array.from({ length: 20 }).map((_, i) => (
-             <div 
-                key={i}
-                className="absolute bg-theme-accent/10 rounded-full blur-md animate-float-up"
-                style={{
-                    left: `${Math.random() * 100}%`,
-                    bottom: '-20px',
-                    width: `${Math.random() * 20 + 5}px`,
-                    height: `${Math.random() * 20 + 5}px`,
-                    animationDuration: `${Math.random() * 10 + 5}s`,
-                    animationDelay: `${Math.random() * 5}s`
-                }}
-             />
-         ))}
+         {Array.from({ length: 20 }).map((_, i) => {
+             const initialLeft = (i * 137) % 100;
+             const initialTop = (i * 293) % 100;
+             return (
+                 <div 
+                    key={i}
+                    className="absolute bg-theme-accent/20 rounded-full blur-md animate-float-up"
+                    style={{
+                        left: `${initialLeft}%`,
+                        top: `${initialTop}%`, 
+                        width: `${(i % 5) * 5 + 5}px`,
+                        height: `${(i % 5) * 5 + 5}px`,
+                        animationDuration: `${(i % 10) + 15}s`, // Slower, smoother animation
+                        animationDelay: `-${i * 2}s`,
+                    }}
+                 />
+             )
+         })}
       </div>
     
       <div className="flex flex-col items-center gap-6 animate-fade-in relative z-10">
@@ -348,7 +354,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
                 onClick={() => handleTriggerFileUpload('erase')} 
                 data-tooltip-id="app-tooltip"
                 data-tooltip-content={t('editAPhoto')}
-                className="relative w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-gray-800 dark:text-gray-200 bg-gray-200 dark:bg-white/10 rounded-full cursor-pointer group transition-all duration-300 ease-in-out hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95"
+                className="relative w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-gray-800 dark:text-gray-200 bg-gray-200 dark:bg-white/10 rounded-full cursor-pointer group transition-all duration-300 ease-in-out hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 ring-2 ring-transparent hover:ring-theme-accent/50"
             >
                 <UploadIcon className="w-6 h-6 mr-3 transition-transform duration-500 ease-in-out group-hover:translate-y-[-2px]" />
                 {t('editAPhoto')}
@@ -400,7 +406,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
                             onClick={() => handleTriggerFileUpload(feature.id)}
                             className="group w-full h-full glass border border-white/20 dark:border-white/5 p-6 rounded-2xl flex flex-col items-center text-center cursor-pointer"
                           >
-                            <div className="flex items-center justify-center w-12 h-12 bg-gray-100 dark:bg-white/10 rounded-full mb-4 transition-all duration-300 group-hover:bg-theme-gradient group-hover:text-white border border-gray-200 dark:border-white/10">
+                            <div className="flex items-center justify-center w-20 h-20 bg-gray-100 dark:bg-white/10 rounded-full mb-4 transition-all duration-300 group-hover:bg-theme-gradient group-hover:text-white border border-gray-200 dark:border-white/10">
                               {feature.icon}
                             </div>
                             <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 transition-colors">{feature.title}</h3>

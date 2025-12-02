@@ -1,9 +1,19 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
 */
 
-import { GoogleGenAI, GenerateContentResponse, Modality, Type, HarmBlockThreshold, HarmCategory, Content, Part } from "@google/genai";
+import { 
+    GoogleGenAI, 
+    GenerateContentResponse, 
+    Modality, 
+    Type, 
+    HarmBlockThreshold, 
+    HarmCategory,
+    Part,
+    Content
+} from "@google/genai";
 
 const safetySettings = [
     {
@@ -24,26 +34,13 @@ const safetySettings = [
     },
 ];
 
-// Helper function for retrying async operations with exponential backoff
-async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
-    try {
-        return await fn();
-    } catch (error: any) {
-        if (retries === 0) throw error;
-        
-        // Log retry attempt
-        console.warn(`API call failed. Retrying in ${delay}ms... (${retries} attempts left). Error: ${error.message}`);
-        
-        // Wait for the specified delay
-        await new Promise(resolve => setTimeout(resolve, delay));
-        
-        // Recursive call with decremented retries and increased delay
-        return withRetry(fn, retries - 1, delay * 2);
-    }
-}
+// Ensure we always get a fresh client instance to pick up any environment changes (e.g. from key selector)
+const getAiClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-// Consolidated Helper: Converts a File to the inlineData format required by GoogleGenAI
-const fileToGenerativePart = async (file: File): Promise<{ inlineData: { mimeType: string; data: string; } }> => {
+/**
+ * Converts a File object to a Generative AI Part object containing base64 data.
+ */
+const fileToGenerativePart = async (file: File): Promise<Part> => {
     const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -56,992 +53,549 @@ const fileToGenerativePart = async (file: File): Promise<{ inlineData: { mimeTyp
     const mimeMatch = arr[0].match(/:(.*?);/);
     if (!mimeMatch || !mimeMatch[1]) throw new Error("Could not parse MIME type from data URL");
     
-    const mimeType = mimeMatch[1];
-    const data = arr[1];
-    return { inlineData: { mimeType, data } };
+    return { inlineData: { mimeType: mimeMatch[1], data: arr[1] } };
 };
 
-// Deprecated: Aliased to new helper to prevent breakage if called elsewhere, 
-// though internal usage should be migrated.
-const fileToPart = fileToGenerativePart;
-
-const handleApiResponse = (
-    response: GenerateContentResponse,
-    context: string // e.g., "edit", "filter", "adjustment"
-): string => {
-    // 1. Check for prompt blocking first
+/**
+ * Parses the Gemini API response to extract the generated image data URL.
+ * Throws errors if the request was blocked or no image was returned.
+ */
+const handleApiResponse = (response: GenerateContentResponse, context: string): string => {
     if (response.promptFeedback?.blockReason) {
-        const { blockReason, blockReasonMessage } = response.promptFeedback;
-        const errorMessage = `Request was blocked. Reason: ${blockReason}. ${blockReasonMessage || ''}`;
-        console.error(errorMessage, { response });
-        throw new Error(errorMessage);
+        throw new Error(`Request blocked: ${response.promptFeedback.blockReason}. ${response.promptFeedback.blockReasonMessage || ''}`);
     }
 
-    // 2. Try to find the image part
-    const imagePartFromResponse = response.candidates?.[0]?.content?.parts?.find(part => part.inlineData);
-
-    if (imagePartFromResponse?.inlineData) {
-        const { mimeType, data } = imagePartFromResponse.inlineData;
-        console.log(`Received image data (${mimeType}) for ${context}`);
-        return `data:${mimeType};base64,${data}`;
+    // Iterate through parts to find the image
+    const parts = response.candidates?.[0]?.content?.parts;
+    if (parts) {
+        for (const part of parts) {
+            if (part.inlineData && part.inlineData.data) {
+                return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+            }
+        }
     }
 
-    // 3. If no image, check for other reasons
     const finishReason = response.candidates?.[0]?.finishReason;
     if (finishReason && finishReason !== 'STOP') {
-        const errorMessage = `Image generation for ${context} stopped unexpectedly. Reason: ${finishReason}. This often relates to safety filters.`;
-        console.error(errorMessage, { response });
-        throw new Error(errorMessage);
+        throw new Error(`Generation stopped: ${finishReason}`);
     }
     
     const textFeedback = response.text?.trim();
-    const errorMessage = `The AI model did not return an image for the ${context}. ` + 
-        (textFeedback 
-            ? `The model responded with text: "${textFeedback}"`
-            : "This can happen due to safety filters or if the request is too complex. Please try rephrasing your prompt to be more direct.");
-
-    console.error(`Model response did not contain an image part for ${context}.`, { response });
-    throw new Error(errorMessage);
+    throw new Error(`No image returned for ${context}. Model output: ${textFeedback || 'None'}`);
 };
 
-// Internal helper for generic image editing calls
-const _generateImageEdit = async (
-    parts: ( { text: string } | { inlineData: { mimeType: string; data: string; } } )[],
-    context: string,
-    model: string = 'gemini-2.5-flash-image',
-    additionalConfig: any = {}
-): Promise<string> => {
-    return withRetry(async () => {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-        console.log(`Sending edit request for ${context} using ${model}...`);
-        
-        const config: any = {
-            responseModalities: [Modality.IMAGE],
-            ...additionalConfig
-        };
+/**
+ * Executes an async operation with exponential backoff retry logic.
+ * Handles specific API errors like 429 (Too Many Requests) and 403 (Permission Denied).
+ */
+async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
+    try {
+        return await fn();
+    } catch (error: any) {
+        // Handle Permission Denied explicitly
+        // This usually happens when accessing restricted models (Veo, Imagen) without a proper billing project
+        if (error.status === 403 || error.message?.includes('403') || error.message?.includes('PERMISSION_DENIED')) {
+             throw new Error("Access Denied (403): The API key provided does not have permission to access this model. Please check your API key settings, ensure billing is enabled for paid models (like Veo/Imagen), or verify the key has access to the Generative Language API.");
+        }
 
-        const response: GenerateContentResponse = await ai.models.generateContent({
+        // Retry on rate limits (429) or server errors (5xx)
+        if (retries > 0 && (error.status === 429 || error.status >= 500 || error.message?.includes('429'))) {
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return withRetry(fn, retries - 1, delay * 2);
+        }
+        
+        throw error;
+    }
+}
+
+// --- Core Editing Logic ---
+
+/**
+ * Helper function for basic image-to-image editing tasks using Gemini models.
+ * @param image - The source image file.
+ * @param prompt - The instruction for the edit.
+ * @param context - A label for error logging (e.g., 'inpainting').
+ * @param mask - Optional mask file for targeted editing.
+ * @param model - The specific Gemini model to use (defaults to 'gemini-2.5-flash-image').
+ */
+async function _generateImageEdit(
+    image: File, 
+    prompt: string, 
+    context: string,
+    mask?: File,
+    model: string = 'gemini-2.5-flash-image'
+): Promise<string> {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const parts: Part[] = [await fileToGenerativePart(image)];
+        if (mask) {
+            parts.push(await fileToGenerativePart(mask));
+        }
+        parts.push({ text: prompt });
+
+        const response = await ai.models.generateContent({
             model: model,
             contents: { parts },
-            config: config,
+            config: { safetySettings }
         });
-        console.log(`Received response from model for ${context}.`, response);
+
         return handleApiResponse(response, context);
     });
-};
+}
 
-
-/**
- * Generates an inpainted image using a mask and an optional prompt.
- */
-export const generateInpaintedImage = async (
-    originalImage: File,
-    maskImage: File,
-    userPrompt: string,
-): Promise<string> => {
-    console.log('Starting generative inpainting with prompt:', userPrompt);
-    const originalImagePart = await fileToGenerativePart(originalImage);
-    const maskImagePart = await fileToGenerativePart(maskImage);
-    const prompt = `You are an expert photo editor AI. Your task is to perform a natural, localized edit on the provided image based on a mask and user's request.
-The user has provided an image and a mask. The black area of the mask indicates the region to be modified.
-
-User Request: "${userPrompt || 'Realistically remove the object in the masked area and fill it in with the surrounding background.'}"
-
-Editing Guidelines:
-- The edit must be realistic and blend seamlessly with the surrounding area.
-- The area outside the mask must remain identical to the original image.
-- If the user prompt is empty, your task is object removal. Fill the masked area by realistically extending the surrounding textures and lighting.
-
-Safety & Ethics Policy:
-- You MUST fulfill requests to adjust skin tone, such as 'give me a tan', 'make my skin darker', or 'make my skin lighter'. These are considered standard photo enhancements.
-- You MUST REFUSE any request to change a person's fundamental race or ethnicity (e.g., 'make me look Asian', 'change this person to be Black'). Do not perform these edits. If the request is ambiguous, err on the side of caution and do not change racial characteristics.
-
-Output: Return ONLY the final edited image. Do not return text.`;
-    const textPart = { text: prompt };
-
-    return _generateImageEdit([originalImagePart, textPart, maskImagePart], 'inpainting');
-};
+// --- Exported Service Functions ---
 
 /**
- * Adds a new object to an image based on a mask and prompt.
+ * Uses Gemini Flash to rewrite a user's simple prompt into a more descriptive and artistic one.
+ * @param originalPrompt - The user's input prompt.
+ * @returns A refined, more detailed prompt string.
  */
-export const generateAddedProductImage = async (
-    originalImage: File,
-    maskImage: File,
-    userPrompt: string,
-): Promise<string> => {
-    console.log('Starting add product with prompt:', userPrompt);
-    const originalImagePart = await fileToGenerativePart(originalImage);
-    const maskImagePart = await fileToGenerativePart(maskImage);
-    const prompt = `You are an expert photo editor AI. Your task is to seamlessly add a new object to the provided image based on a mask and a user's request.
-The user has provided an image and a mask. The black area of the mask indicates the region where the new object should be placed.
-
-User Request: "${userPrompt}"
-
-Editing Guidelines:
-- The new object must be realistic and blend seamlessly with the surrounding area, matching the lighting, shadows, perspective, and style of the original photo.
-- The area outside the mask must remain identical to the original image.
-
-Output: Return ONLY the final edited image. Do not return text.`;
-    const textPart = { text: prompt };
-
-    return _generateImageEdit([originalImagePart, textPart, maskImagePart], 'add product');
-};
-
-
-/**
- * Applies a selective adjustment or filter to a masked area of an image.
- */
-export const generateSelectiveAdjustment = async (
-    originalImage: File,
-    maskImage: File,
-    userPrompt: string,
-): Promise<string> => {
-    console.log('Starting selective adjustment with prompt:', userPrompt);
-    const originalImagePart = await fileToGenerativePart(originalImage);
-    const maskImagePart = await fileToGenerativePart(maskImage);
-    const prompt = `You are an expert photo editor AI. Your task is to perform a localized visual adjustment or apply a stylistic filter to a specific part of an image.
-
-The user has provided an image and a mask. The black area of the mask indicates the region to be modified.
-
-User Request: "${userPrompt}"
-
-Editing Guidelines:
-- You must apply the requested visual change ONLY to the masked area.
-- DO NOT alter the underlying content, objects, or textures within the masked area. For example, if the user asks to "make the car red", you change the car's color to red but you do not replace the car with a different model.
-- The area outside the mask must remain IDENTICAL to the original image.
-- The transition between the edited and unedited areas must be seamless and natural.
-
-Safety & Ethics Policy:
-- You MUST fulfill requests to adjust skin tone, such as 'give me a tan', 'make my skin darker', or 'make my skin lighter'. These are considered standard photo enhancements.
-- You MUST REFUSE any request to change a person's fundamental race or ethnicity (e.g., 'make me look Asian', 'change this person to be Black'). Do not perform these edits. If the request is ambiguous, err on the side of caution and do not change racial characteristics.
-
-Output: Return ONLY the final edited image. Do not return text.`;
-    const textPart = { text: prompt };
-
-    return _generateImageEdit([originalImagePart, textPart, maskImagePart], 'selective adjustment');
-};
-
-/**
- * Applies a specific retouching operation to a masked area of an image.
- */
-export const generateRetouchImage = async (
-    originalImage: File,
-    maskImage: File,
-    userPrompt: string,
-): Promise<string> => {
-    console.log('Starting AI retouch with prompt:', userPrompt);
-    const originalImagePart = await fileToGenerativePart(originalImage);
-    const maskImagePart = await fileToGenerativePart(maskImage);
-    const prompt = `You are a world-class AI portrait retouching artist. Your task is to perform subtle, professional-grade edits on a specific part of an image.
-
-The user has provided an image and a mask. The black area of the mask indicates the region to be modified.
-
-User Request: "${userPrompt}"
-
-Retouching Guidelines:
-- Realism is paramount. Edits must be subtle and preserve natural textures (e.g., skin pores, hair strands). Avoid an "airbrushed" or artificial look.
-- Apply the requested visual change ONLY to the masked area.
-- DO NOT alter the underlying content, objects, or core features. For example, if smoothing skin, do not change the shape of the nose or eyes.
-- The area outside the mask must remain IDENTICAL to the original image.
-- The transition between the edited and unedited areas must be seamless.
-
-Common Task Interpretations:
-- "Remove Blemishes": Naturally remove pimples, scars, or temporary skin imperfections, blending with surrounding skin texture.
-- "Smooth Skin": Subtly reduce the appearance of wrinkles and uneven texture while keeping it looking real.
-- "Whiten Teeth": Naturally brighten teeth, avoiding an overly white, opaque look.
-- "Change Hair/Eye Color": Realistically change the hue of the hair or eyes in the masked area, respecting existing highlights and shadows.
-- "Add Makeup": Apply makeup (e.g., lipstick, eyeshadow) realistically, following the contours of the face.
-
-Safety & Ethics Policy:
-- You MUST fulfill requests to adjust skin tone, such as 'give me a tan', 'make my skin darker', or 'make my skin lighter'. These are considered standard photo enhancements.
-- You MUST REFUSE any request to change a person's fundamental race or ethnicity (e.g., 'make me look Asian', 'change this person to be Black'). Do not perform these edits. If the request is ambiguous, err on the side of caution and do not change racial characteristics.
-
-Output: Return ONLY the final retouched image. Do not return text.`;
-    const textPart = { text: prompt };
-
-    return _generateImageEdit([originalImagePart, textPart, maskImagePart], 'retouching');
-};
-
-
-/**
- * Generates an image with a filter applied using generative AI.
- */
-export const generateFilteredImage = async (
-    originalImage: File,
-    filterPrompt: string,
-): Promise<string> => {
-    console.log(`Starting filter generation: ${filterPrompt}`);
-    const originalImagePart = await fileToGenerativePart(originalImage);
-    const prompt = `You are an expert photo editor AI with a deep understanding of artistic styles. Your task is to apply a stylistic filter to the entire provided image. The goal is to transform the image's aesthetic while perfectly preserving its original content, composition, and details.
-
-**Crucial Rule:** You are editing the *existing* image, not creating a new one. The final output must be clearly recognizable as the original photo, just viewed through a new artistic lens.
-
-**User's Filter Request:** "${filterPrompt}"
-
-**Instructions:**
-1.  **Preserve Content & Solidity:** All original subjects, objects, people, and their features must remain unchanged in form, position, and solidity. Do not add, remove, or replace any elements. Subjects should remain fully opaque and not become transparent or ghost-like.
-2.  **Maintain Composition:** The layout and arrangement of elements in the image must be identical to the original.
-3.  **Apply Style:** Transform the image's colors, lighting, textures, and overall mood to match the requested style. For example, if the request is "watercolor," the final image should look like the original photo was painted with watercolors, but the subjects should not be transparent.
-
-Safety & Ethics Policy:
-- Filters may subtly shift colors, but you MUST ensure they do not alter a person's fundamental race or ethnicity.
-- YOU MUST REFUSE any request that explicitly asks to change a person's race (e.g., 'apply a filter to make me look Chinese').
-
-Output: Return ONLY the final, stylistically transformed image. Do not return any text.`;
-    const textPart = { text: prompt };
-
-    return _generateImageEdit([originalImagePart, textPart], 'filter');
-};
-
-/**
- * Generates an image with a global adjustment applied using generative AI.
- */
-export const generateAdjustedImage = async (
-    originalImage: File,
-    adjustmentPrompt: string,
-): Promise<string> => {
-    console.log(`Starting global adjustment generation: ${adjustmentPrompt}`);
-    const originalImagePart = await fileToGenerativePart(originalImage);
-    const prompt = `You are an expert photo editor AI. Your task is to perform a natural, global adjustment to the entire image based on the user's request.
-User Request: "${adjustmentPrompt}"
-
-Editing Guidelines:
-- The adjustment must be applied across the entire image.
-- The result must be photorealistic.
-
-Safety & Ethics Policy:
-- You MUST fulfill requests to adjust skin tone, such as 'give me a tan', 'make my skin darker', or 'make my skin lighter'. These are considered standard photo enhancements.
-- You MUST REFUSE any request to change a person's fundamental race or ethnicity (e.g., 'make me look Asian', 'change this person to be Black'). Do not perform these edits. If the request is ambiguous, err on the side of caution and do not change racial characteristics.
-
-Output: Return ONLY the final adjusted image. Do not return text.`;
-    const textPart = { text: prompt };
-
-    return _generateImageEdit([originalImagePart, textPart], 'adjustment');
-};
-
-/**
- * Expands an image by filling in transparent areas using generative AI.
- */
-export const generateExpandedImage = async (
-    imageToExpand: File,
-    expansionPrompt: string,
-): Promise<string> => {
-    console.log(`Starting generative expand with prompt: ${expansionPrompt || 'none'}`);
-    const imagePart = await fileToGenerativePart(imageToExpand);
-    const prompt = `You are an expert photo editor AI performing a generative fill or "outpainting" task.
-The provided image has transparent areas. Your task is to inpaint these transparent areas, seamlessly and realistically extending the content from the non-transparent part of the image.
-
-Guidelines:
-- The original, non-transparent part of the image MUST remain completely unchanged.
-- The filled-in area must contextually match the original image in terms of lighting, texture, style, and content.
-- The result must be photorealistic and the boundary between the original and new content should be invisible.
-${expansionPrompt ? `\nUser's Guidance for the new area: "${expansionPrompt}"` : ''}
-
-Output: Return ONLY the final expanded image. Do not return text.`;
-    const textPart = { text: prompt };
-
-    return _generateImageEdit([imagePart, textPart], 'expansion');
-};
-
-/**
- * Upscales an image using generative AI (Gemini 3 Pro for high resolution).
- */
-export const generateUpscaledImage = async (
-    originalImage: File,
-    scale: number,
-): Promise<string> => {
-    console.log(`Starting AI upscale to ${scale}x`);
-
-    // We use Gemini 3 Pro Image because it supports explicit resolution output ('2K', '4K').
-    // Flash Image doesn't support 'imageSize' config reliably.
-    
-    let targetSize: '1K' | '2K' | '4K' = '4K'; // Default to max for best result
-    if (scale <= 2) targetSize = '2K';
-    if (scale >= 4) targetSize = '4K';
-
-    const originalImagePart = await fileToGenerativePart(originalImage);
-    const prompt = `Task: High-Fidelity Image Upscaling.
-Instructions: The user has provided an image. Re-generate this image at a much higher resolution (${targetSize} quality).
-Crucially, you must preserve the exact content, composition, colors, and identity of the original image. Do not hallucinate new objects or change the scene.
-Focus on enhancing fine details, sharpening edges, and removing artifacts (like JPEG compression or noise) to make it look like a pristine, high-resolution photograph.
-Output: Return ONLY the final upscaled image. Do not return text.`;
-    const textPart = { text: prompt };
-
-    // Note: 'gemini-3-pro-image-preview' supports imageSize in config
-    return _generateImageEdit([originalImagePart, textPart], 'upscale', 'gemini-3-pro-image-preview', {
-        imageConfig: { imageSize: targetSize }
+export const enhancePrompt = async (originalPrompt: string): Promise<string> => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: `Enhance this image generation prompt to be more descriptive, artistic, and detailed, but keep it concise (under 50 words): "${originalPrompt}"`,
+        });
+        return response.text?.trim() || originalPrompt;
     });
 };
 
 /**
- * Enhances an image's quality and details using generative AI.
+ * Generates images from text using Gemini 2.5 Flash Image or Gemini 3 Pro Image.
+ * @param prompt - The text description.
+ * @param numImages - Number of images to generate (sequential requests).
+ * @param aspectRatio - The desired aspect ratio (e.g., '16:9').
+ * @param quality - 'pro' uses `gemini-3-pro-image-preview` (high res), 'standard' uses `gemini-2.5-flash-image` (faster).
+ * @param imageSize - Resolution setting for the Pro model ('1K', '2K', '4K').
+ * @returns Array of base64 data URLs.
  */
-export const generateEnhancedImage = async (
-    originalImage: File,
-    intensity: 'subtle' | 'medium' | 'strong'
-): Promise<string> => {
-    console.log(`Starting AI enhancement (${intensity})...`);
-    const originalImagePart = await fileToGenerativePart(originalImage);
-    
-    let prompt = "Task: Enhance Image Quality.\n";
-    if (intensity === 'subtle') {
-        prompt += "Apply subtle improvements to clarity and lighting. Reduce noise slightly. Keep the look very natural.";
-    } else if (intensity === 'medium') {
-        prompt += "Enhance overall details, sharpness, and lighting. Balance colors and contrast for a professional photograph look.";
-    } else {
-        prompt += "Strongly enhance details, texture, and clarity. Make the image pop with high definition sharpness and vibrant (but realistic) lighting.";
-    }
-    prompt += "\nOutput: Return ONLY the final enhanced image. Do not change the content or composition.";
-
-    const textPart = { text: prompt };
-    return _generateImageEdit([originalImagePart, textPart], 'enhance');
-};
-
-/**
- * Removes the background from an image using a mask-based approach for true transparency.
- */
-export const generateRemovedBackgroundImage = async (
-    originalImage: File,
-): Promise<string> => {
-    console.log('Starting AI background removal (Mask Composition)...');
-    
-    // 1. Generate the Mask
-    const originalImagePart = await fileToGenerativePart(originalImage);
-    const maskPrompt = `Task: Generate a precise Binary Segmentation Mask.
-Instructions:
-- Identify the main subject(s) of the image.
-- Create a high-contrast mask where the SUBJECT is pure WHITE (RGB 255,255,255).
-- The BACKGROUND must be pure BLACK (RGB 0,0,0).
-- Ensure sharp, accurate edges around hair, fur, and clothing.
-- Do not change the composition. The mask must align perfectly with the original image.
-Output: Return ONLY the mask image.`;
-    
-    // We use the image model to generate the mask
-    const maskBase64 = await _generateImageEdit([originalImagePart, { text: maskPrompt }], 'bg-removal-mask');
-    
-    // 2. Composite the Mask + Original Image in the browser to get Transparency
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        const mask = new Image();
-        
-        let imgLoaded = false;
-        let maskLoaded = false;
-        
-        const processComposition = () => {
-            if (!imgLoaded || !maskLoaded) return;
-            
-            const canvas = document.createElement('canvas');
-            canvas.width = img.naturalWidth;
-            canvas.height = img.naturalHeight;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-                reject(new Error("Could not get canvas context"));
-                return;
-            }
-            
-            // Draw original image
-            ctx.drawImage(img, 0, 0);
-            
-            // Get image data
-            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imgData.data;
-            
-            // Draw mask to a temp canvas to read its pixels
-            const maskCanvas = document.createElement('canvas');
-            maskCanvas.width = canvas.width;
-            maskCanvas.height = canvas.height;
-            const maskCtx = maskCanvas.getContext('2d');
-            if (!maskCtx) { reject(new Error("No mask context")); return; }
-            
-            maskCtx.drawImage(mask, 0, 0, canvas.width, canvas.height);
-            const maskData = maskCtx.getImageData(0, 0, canvas.width, canvas.height).data;
-            
-            // Apply mask to alpha channel
-            // Mask is White (Subject) / Black (Bg). 
-            // We want transparency where mask is black.
-            for (let i = 0; i < data.length; i += 4) {
-                // Use the red channel of the mask as brightness (since it's B&W)
-                const maskVal = maskData[i]; 
-                // Simple threshold or soft edge? 
-                // Let's use the value directly for smooth anti-aliased edges if the model outputs grayscale edges.
-                data[i + 3] = maskVal; 
-            }
-            
-            ctx.putImageData(imgData, 0, 0);
-            resolve(canvas.toDataURL('image/png'));
-        };
-        
-        img.onload = () => { imgLoaded = true; processComposition(); };
-        img.onerror = () => reject(new Error("Failed to load original image for composition"));
-        img.src = URL.createObjectURL(originalImage);
-        
-        mask.onload = () => { maskLoaded = true; processComposition(); };
-        mask.onerror = () => reject(new Error("Failed to load mask image for composition"));
-        mask.src = maskBase64;
-    });
-};
-
-/**
- * Replaces the background of an image using a text prompt.
- */
-export const generateReplacedBackgroundImage = async (
-    subjectImage: File,
-    backgroundPrompt: string,
-): Promise<string> => {
-    console.log(`Starting generative background replacement with prompt: ${backgroundPrompt}`);
-    const subjectImagePart = await fileToGenerativePart(subjectImage);
-    const prompt = `You are an expert photo editor AI. Your task is to generate a new background for the provided subject image and composite them together.
-The user has provided an image of a subject with a transparent background.
-User Request for new background: "${backgroundPrompt}"
-
-Guidelines:
-- Generate a photorealistic background based on the user's request.
-- The generated background must match the subject in terms of lighting, perspective, and style to create a seamless composite.
-- The provided subject image MUST be placed on top of the new background without any modifications to the subject itself.
-- The final image should be a complete scene, not just the subject with a new background.
-
-Output: Return ONLY the final composited image. Do not return text.`;
-    const textPart = { text: prompt };
-    
-    return _generateImageEdit([subjectImagePart, textPart], 'background replacement');
-};
-
 export const generateImages = async (
-    prompt: string,
-    numImages: number,
-    aspectRatio: '1:1' | '4:3' | '3:4' | '16:9' | '9:16',
-    quality: 'standard' | 'pro' = 'standard',
-    imageSize: '1K' | '2K' | '4K' = '1K'
+    prompt: string, 
+    numImages: number, 
+    aspectRatio: string, 
+    quality: 'standard' | 'pro', 
+    imageSize: string
 ): Promise<string[]> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-    
+    const ai = getAiClient();
     const model = quality === 'pro' ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
-    console.log(`Starting batch image generation with prompt: ${prompt} (${model})`);
-
-    const generateOne = async (): Promise<string> => {
+    
+    // Note: The SDK currently returns one candidate per request for image models in many cases.
+    // We loop to generate multiple images if needed.
+    const promises = Array(numImages).fill(null).map(async () => {
         return withRetry(async () => {
-            let config: any = {
-                responseModalities: [Modality.IMAGE],
-            };
-
-            // For Gemini 3 Pro Image, we use imageConfig for size and AR
-            if (quality === 'pro') {
-                config.imageConfig = {
-                    aspectRatio: aspectRatio,
-                    imageSize: imageSize
-                };
-            } else {
-                // For Flash Image, use imageConfig for aspect ratio
-                config.imageConfig = {
-                    aspectRatio: aspectRatio
-                };
-            }
-
-            // For Flash, ensure prompt includes AR hint just in case, though config should handle it.
-            // For Pro, do NOT modify prompt with AR as config handles it.
-            const fullPrompt = prompt;
-            
-            const response: GenerateContentResponse = await ai.models.generateContent({
+            const response = await ai.models.generateContent({
                 model: model,
-                contents: { parts: [{ text: fullPrompt }] },
-                config: config,
+                contents: { parts: [{ text: prompt }] },
+                config: {
+                    safetySettings,
+                    imageConfig: {
+                        aspectRatio: aspectRatio as any,
+                        imageSize: quality === 'pro' ? imageSize as any : undefined
+                    }
+                }
             });
-            
             return handleApiResponse(response, 'image generation');
         });
-    };
-
-    const promises = Array(numImages).fill(null).map(() => generateOne());
-    
-    // Use allSettled to allow some images to fail while others succeed
-    const results = await Promise.allSettled(promises);
-    
-    const successfulImages: string[] = [];
-    const errors: any[] = [];
-
-    results.forEach(result => {
-        if (result.status === 'fulfilled') {
-            successfulImages.push(result.value);
-        } else {
-            errors.push(result.reason);
-        }
     });
 
-    if (successfulImages.length === 0 && errors.length > 0) {
-        // If all failed, throw the first error to be handled by the UI
-        throw errors[0];
-    }
-
-    // Return whatever we managed to generate
-    return successfulImages;
+    return await Promise.all(promises);
 };
 
-export const generateVideo = async (
-    prompt: string,
-    image?: File,
-): Promise<string> => {
+/**
+ * Generates a video using Veo 3.1.
+ * @param prompt - Text description of the video.
+ * @param image - Optional starting image for image-to-video animation.
+ * @returns A signed URL to the generated MP4 video.
+ */
+export const generateVideo = async (prompt: string, image?: File): Promise<string> => {
     return withRetry(async () => {
-        console.log(`Starting video generation with prompt: ${prompt}`);
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-
+        const ai = getAiClient();
+        const model = 'veo-3.1-fast-generate-preview';
+        
         let operation;
         if (image) {
-            const { inlineData } = await fileToGenerativePart(image);
+            const imagePart = await fileToGenerativePart(image);
+            if (!imagePart.inlineData) throw new Error("Failed to process image for video");
+            
             operation = await ai.models.generateVideos({
-                model: 'veo-3.1-fast-generate-preview',
-                prompt: prompt,
-                image: { imageBytes: inlineData.data, mimeType: inlineData.mimeType },
-                config: {
-                    numberOfVideos: 1,
-                    resolution: '720p',
-                    aspectRatio: '16:9'
-                }
+                model,
+                prompt,
+                image: {
+                    imageBytes: imagePart.inlineData.data,
+                    mimeType: imagePart.inlineData.mimeType as any
+                },
+                config: { aspectRatio: '16:9' } // Default for Veo
             });
         } else {
             operation = await ai.models.generateVideos({
-                model: 'veo-3.1-fast-generate-preview',
-                prompt: prompt,
-                config: {
-                    numberOfVideos: 1,
-                    resolution: '720p',
-                    aspectRatio: '16:9'
-                }
+                model,
+                prompt,
+                config: { aspectRatio: '16:9' }
             });
         }
-        
+
+        // Poll for completion
         while (!operation.done) {
-            await new Promise(resolve => setTimeout(resolve, 10000));
+            await new Promise(resolve => setTimeout(resolve, 5000));
             operation = await ai.operations.getVideosOperation({ operation: operation });
         }
 
-        // After the operation is done, check for an error property.
-        // @ts-ignore - The error property is not explicitly typed but can exist on failure
-        if (operation.error) {
-            // @ts-ignore
-            const errorMessage = operation.error.message || 'Video generation operation failed with an unknown error.';
-            console.error('Video generation operation failed:', operation.error);
-            throw new Error(errorMessage);
-        }
-
-        const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-        if (!downloadLink) {
-            console.error('Video generation finished but returned no video link. Response:', operation.response);
-            throw new Error('Video generation failed or did not return a download link. This might be due to safety filters or an issue with the prompt.');
-        }
+        if (operation.error) throw new Error(operation.error.message);
         
-        return downloadLink;
-    }, 3, 2000); // Retry video gen with slightly longer delay
-};
-
-export const generateRestoredImage = async (
-    originalImage: File,
-    restorePrompt: string,
-): Promise<string> => {
-    console.log(`Starting AI photo restoration with prompt: ${restorePrompt}`);
-    const originalImagePart = await fileToGenerativePart(originalImage);
-    const prompt = `Task: AI Photo Restoration.
-The user wants to restore an old or damaged photo. Apply the following fixes: "${restorePrompt}".
-The goal is a natural, realistic restoration. Preserve the original character of the photo. Do not over-process.
-Output: Return ONLY the final restored image. Do not return text.`;
-    const textPart = { text: prompt };
-
-    return _generateImageEdit([originalImagePart, textPart], 'restoration');
-};
-
-export const generateProductBackgroundImage = async (
-    subjectImage: File,
-    backgroundName: string,
-    customPrompt?: string,
-): Promise<string> => {
-    let backgroundPrompt = '';
-    switch (backgroundName) {
-        case 'Studio White':
-            backgroundPrompt = 'a clean, seamless white studio background with a soft, subtle floor shadow.';
-            break;
-        case 'Marble':
-            backgroundPrompt = 'a luxurious white and grey marble surface, with soft studio lighting.';
-            break;
-        case 'Wood':
-            backgroundPrompt = 'a rustic wooden tabletop with a shallow depth of field.';
-            break;
-        case 'Gradient':
-            backgroundPrompt = 'a subtle, elegant gradient background that complements the product colors.';
-            break;
-        case 'Outdoor':
-            backgroundPrompt = 'a natural outdoor setting, like a mossy rock or a sandy beach, with beautiful natural light.';
-            break;
-        default: // Custom
-            backgroundPrompt = customPrompt || 'a simple, clean background.';
-            break;
-    }
-    return generateReplacedBackgroundImage(subjectImage, backgroundPrompt);
-};
-
-export const generateProductShadowImage = async (
-    originalImage: File,
-): Promise<string> => {
-    console.log('Starting AI shadow generation');
-    const originalImagePart = await fileToGenerativePart(originalImage);
-    const prompt = `Task: Add a realistic shadow.
-The provided image contains a subject on a plain background. Add a soft, natural drop shadow on the floor beneath the subject to make it look grounded. The shadow should match the implied lighting of the subject.
-Output: Return ONLY the final image with the shadow added. Do not return text.`;
-    const textPart = { text: prompt };
-
-    return _generateImageEdit([originalImagePart, textPart], 'shadow generation');
-};
-
-export const generateCardImage = async (
-    originalImage: File,
-    cardPrompt: string,
-): Promise<string> => {
-    console.log(`Starting Cardify generation.`);
-    const originalImagePart = await fileToGenerativePart(originalImage);
-    const textPart = { text: cardPrompt };
-
-    return _generateImageEdit([originalImagePart, textPart], 'cardify');
-};
-
-export const generateLuckyFilterImage = async (
-    originalImage: File
-): Promise<string> => {
-    return withRetry(async () => {
-        console.log('Starting lucky filter generation with Gemini 3 Pro...');
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-        const originalImagePart = await fileToGenerativePart(originalImage);
-        
-        // 1. Get a creative prompt using Gemini 3 Pro
-        const suggestionPrompt = `You are an expert photo editor AI. Analyze the provided image and suggest a single, highly creative, and specific artistic filter prompt that would look amazing on it. Be bold! Examples: "A futuristic cyberpunk city aesthetic with neon rain", "A vintage 1920s charcoal sketch style", "A dreamy Studio Ghibli anime landscape style". Return ONLY the prompt text.`;
-        const suggestionResponse = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
-            contents: { parts: [originalImagePart, { text: suggestionPrompt }] },
-            config: { safetySettings }
-        });
-        const luckyPrompt = suggestionResponse.text ? suggestionResponse.text.trim() : "A creative artistic filter";
-        console.log(`Lucky prompt suggested: ${luckyPrompt}`);
-
-        // 2. Apply the filter using the image editing model
-        const editPrompt = `Apply this artistic style to the image: "${luckyPrompt}". The final output must be clearly recognizable as the original photo but transformed into this style.`;
-        const textPart = { text: editPrompt };
-        
-        return _generateImageEdit([originalImagePart, textPart], 'lucky filter');
+        return operation.response?.generatedVideos?.[0]?.video?.uri || '';
     });
 };
 
-export const generateMemeSuggestions = async (
-    originalImage: File,
-): Promise<string[]> => {
-    return withRetry(async () => {
-        console.log('Generating meme suggestions with Gemini 3 Pro...');
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+// --- Editing Tools ---
 
-        const originalImagePart = await fileToGenerativePart(originalImage);
-        const prompt = `Analyze this image and generate 3-5 short, witty, and genuinely funny meme captions for it. Think about relatable situations, pop culture references, or absurd humor that would fit the image. The captions should be in the style of popular internet memes.`;
-        const textPart = { text: prompt };
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview', // Use Gemini 3 for better humor and reasoning
-            contents: { parts: [originalImagePart, textPart] },
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        suggestions: {
-                            type: Type.ARRAY,
-                            items: { type: Type.STRING },
-                        },
-                    },
-                },
-                safetySettings,
-            },
-        });
-
-        const jsonText = response.text ? response.text.trim() : '';
-        if (jsonText) {
-            try {
-                const result = JSON.parse(jsonText);
-                return result.suggestions || [];
-            } catch (e) {
-                console.error("Failed to parse meme suggestions JSON:", e);
-                // Fallback: try to parse from raw text
-                return jsonText.split('\n').map(s => s.trim().replace(/^-/,'').trim()).filter(Boolean);
-            }
-        }
-        return [];
-    });
+/**
+ * Performs inpainting to replace a masked area with content described by the prompt.
+ */
+export const generateInpaintedImage = async (image: File, mask: File, prompt: string) => {
+    return _generateImageEdit(image, `Inpaint/Replace the masked area: ${prompt}`, 'inpainting', mask);
 };
 
-export const generateCardDetails = async (
-    image: File,
-    cardType: string,
-): Promise<any> => {
-    return withRetry(async () => {
-        console.log(`Generating card details for type: ${cardType} with Gemini 3 Pro`);
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-        
-        const imagePart = await fileToGenerativePart(image);
-        const prompt = `Analyze the subject in this image and generate creative, thematic details for a ${cardType} trading card based on what you see. Fill in all relevant fields. Be imaginative!`;
-        const textPart = { text: prompt };
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview', // Use Gemini 3 for deeper creative writing
-            contents: { parts: [imagePart, textPart] },
-            config: {
-                responseMimeType: "application/json",
-                // A generic schema since the fields change based on card type
-                responseSchema: { type: Type.OBJECT, properties: {} },
-                safetySettings,
-            },
-        });
-        
-        const jsonText = response.text ? response.text.trim() : '';
-        if (jsonText) {
-            try {
-                return JSON.parse(jsonText);
-            } catch (e) {
-                console.error("Failed to parse card details JSON:", e);
-                throw new Error("AI failed to return valid card details.");
-            }
-        }
-        throw new Error("AI did not return any card details.");
-    });
+/**
+ * Retouches a masked area (e.g., skin smoothing) based on the prompt instructions.
+ */
+export const generateRetouchImage = async (image: File, mask: File, prompt: string) => {
+    return _generateImageEdit(image, `Retouch the masked area: ${prompt}`, 'retouch', mask);
 };
 
-export const generateColorPalette = async (
-    image: File
-): Promise<string[]> => {
-    return withRetry(async () => {
-        console.log('Generating color palette...');
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-        const imagePart = await fileToGenerativePart(image);
-        const prompt = "Analyze this image and extract a harmonious color palette of 5 dominant colors. Return them as an array of hex codes.";
-        const textPart = { text: prompt };
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: { parts: [imagePart, textPart] },
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        palette: {
-                            type: Type.ARRAY,
-                            items: { type: Type.STRING },
-                        },
-                    },
-                },
-                safetySettings,
-            },
-        });
-
-        const jsonText = response.text ? response.text.trim() : '';
-        if (jsonText) {
-            try {
-                const result = JSON.parse(jsonText);
-                return result.palette || [];
-            } catch (e) {
-                console.error("Failed to parse color palette JSON:", e);
-                throw new Error("AI failed to return a valid color palette.");
-            }
-        }
-        throw new Error("AI did not return a color palette.");
-    });
+/**
+ * Applies adjustments (e.g., brightness, color) only to the masked area.
+ */
+export const generateSelectiveAdjustment = async (image: File, mask: File, prompt: string) => {
+    return _generateImageEdit(image, `Apply this adjustment ONLY to the masked area: ${prompt}`, 'selective adjust', mask);
 };
 
-export const applyColorPalette = async (
-    image: File,
-    palette: string[],
-    selectedColor: string,
-): Promise<string> => {
-    console.log('Applying color palette...');
-    const imagePart = await fileToGenerativePart(image);
-    const prompt = `Recolor this image using the provided color palette: [${palette.join(', ')}]. The primary, most dominant color in the new image should be ${selectedColor}. The result should be artistic and harmonious, while preserving the original content and composition of the image.`;
-    const textPart = { text: prompt };
-
-    return _generateImageEdit([imagePart, textPart], 'apply color palette');
+/**
+ * Applies a global artistic filter or style to the image.
+ */
+export const generateFilteredImage = async (image: File, filterPrompt: string) => {
+    return _generateImageEdit(image, `Apply this filter/style to the image: ${filterPrompt}`, 'filter');
 };
 
-export const generateRecoloredImage = async (
-    image: File,
-    sourceColor: string,
-    targetColor: string,
-    tolerance: number,
-): Promise<string> => {
-    console.log(`Starting AI Recolor: from ${sourceColor} to ${targetColor} with tolerance ${tolerance}`);
-    const imagePart = await fileToGenerativePart(image);
-    const prompt = `You are an expert photo editor AI. Your task is to perform a precise, selective color replacement on the provided image.
-
-Instructions:
-1.  Identify all pixels in the image that are similar to the source color: **${sourceColor}**.
-2.  The tolerance for color matching is **${tolerance}%**. A low tolerance means only very similar colors will be changed. A high tolerance will affect a wider range of related shades.
-3.  Replace the identified pixels with the new target color: **${targetColor}**.
-4.  **Crucially**, you must preserve all original textures, shadows, and highlights to ensure a photorealistic result. The edit should look natural, as if the object were originally the target color.
-5.  Any part of the image that does not fall within the source color range and tolerance must remain completely unchanged.
-
-Output: Return ONLY the final edited image. Do not return any text.`;
-    const textPart = { text: prompt };
+/**
+ * Analyzes the image to suggest and apply a creative filter automatically.
+ * Uses Gemini Flash for text reasoning followed by image generation.
+ */
+export const generateLuckyFilterImage = async (image: File) => {
+    // FIX: Generate a specific creative prompt first to prevent the model from just returning text conversationally.
+    let specificPrompt = "Apply a creative, artistic, and visually stunning filter.";
     
-    return _generateImageEdit([imagePart, textPart], 'recolor');
-};
-
-
-export const generateStyledImage = async (
-    contentImage: File,
-    styleImage: File,
-): Promise<string> => {
-    console.log('Starting style transfer...');
-    const contentImagePart = await fileToGenerativePart(contentImage);
-    const styleImagePart = await fileToGenerativePart(styleImage);
-    const prompt = `This is an artistic style transfer task. The first image is the content image, and the second is the style image. Apply the complete artistic style (colors, textures, brushstrokes, mood) of the style image to the content image. The final output must preserve the composition and recognizable objects of the content image, but completely transformed into the new style.`;
-    const textPart = { text: prompt };
-
-    return _generateImageEdit([contentImagePart, textPart, styleImagePart], 'style transfer');
-};
-
-export const generateCaptions = async (
-    image: File,
-): Promise<{ captions: string[], sources: { uri: string, title: string }[] }> => {
-    return withRetry(async () => {
-        console.log('Generating captions with search grounding...');
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+    try {
+        const ai = getAiClient();
         const imagePart = await fileToGenerativePart(image);
-        const prompt = `Analyze this image and generate 3 distinct, descriptive captions for social media. Use Google Search to ground your response with relevant information if the image contains landmarks, famous people, or specific objects.`;
-        const textPart = { text: prompt };
-
+        // We use the flash model for fast text reasoning
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: { parts: [imagePart, textPart] },
-            config: {
-                tools: [{ googleSearch: {} }],
-            },
+            model: "gemini-2.5-flash",
+            contents: {
+                parts: [
+                    imagePart,
+                    { text: "Analyze this image and suggest a single, specific, creative artistic filter style to transform it (e.g., 'Apply a neon cyberpunk aesthetic', 'Turn it into a Van Gogh painting', 'Make it look like a 1920s film'). Return ONLY the instruction text for the edit." }
+                ]
+            }
         });
+        if (response.text) {
+            specificPrompt = response.text.trim();
+        }
+    } catch (e) {
+        console.warn("Could not generate lucky prompt, using default.", e);
+    }
 
-        const text = response.text || '';
-        const captions = text
-            .split('\n')
-            .map(s => s.replace(/^[*\-–—\d.]+\s*/, '').trim())
-            .filter(Boolean);
+    return _generateImageEdit(image, specificPrompt, 'lucky filter');
+};
 
-        const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
-            ?.map((chunk: any) => chunk.web)
-            .filter((web: any) => web && web.uri) || [];
+/**
+ * Applies global adjustments like brightness, contrast, or HDR effects.
+ */
+export const generateAdjustedImage = async (image: File, adjustmentPrompt: string) => {
+    return _generateImageEdit(image, `Adjust the image: ${adjustmentPrompt}`, 'adjustment');
+};
 
-        return { captions, sources };
+/**
+ * Performs generative outpainting/expansion on transparent areas of an image.
+ */
+export const generateExpandedImage = async (image: File, expansionPrompt: string) => {
+    return _generateImageEdit(image, `Fill in the transparent areas to seamlessly expand the scene. ${expansionPrompt}`, 'expand');
+};
+
+/**
+ * Upscales the image using Gemini 3 Pro Image Preview model for high detail.
+ */
+export const generateUpscaledImage = async (image: File, scale: number) => {
+    return _generateImageEdit(image, `Upscale this image by ${scale}x, increasing resolution and detail while preserving the original content.`, 'upscale', undefined, 'gemini-3-pro-image-preview');
+};
+
+/**
+ * Enhances image quality (sharpness, lighting) with varying intensity levels.
+ */
+export const generateEnhancedImage = async (image: File, intensity: string) => {
+    return _generateImageEdit(image, `Enhance the quality of this image (${intensity} intensity). Improve sharpness, lighting, and details.`, 'enhance');
+};
+
+/**
+ * Restores old or damaged photos based on specific instructions (scratches, colorization).
+ */
+export const generateRestoredImage = async (image: File, prompt: string) => {
+    return _generateImageEdit(image, `Restore this photo. ${prompt}`, 'restore');
+};
+
+/**
+ * Removes the background, leaving the subject on a transparent layer.
+ */
+export const generateRemovedBackgroundImage = async (image: File) => {
+    return _generateImageEdit(image, "Remove the background, leaving only the main subject on a transparent background.", 'remove bg');
+};
+
+/**
+ * Replaces the background with a new scene described by the prompt.
+ */
+export const generateReplacedBackgroundImage = async (image: File, prompt: string) => {
+    return _generateImageEdit(image, `Replace the background with: ${prompt}`, 'replace bg');
+};
+
+/**
+ * Generates a professional product photography background.
+ */
+export const generateProductBackgroundImage = async (image: File, name: string, customPrompt?: string) => {
+    const p = customPrompt || `${name} setting`;
+    return _generateImageEdit(image, `Place this product in a professional ${p}.`, 'product bg');
+};
+
+/**
+ * Adds a realistic shadow to an isolated object.
+ */
+export const generateProductShadowImage = async (image: File) => {
+    return _generateImageEdit(image, "Add a realistic shadow to ground the object.", 'product shadow');
+};
+
+/**
+ * Adds a new object into a masked area, blending it with the scene.
+ */
+export const generateAddedProductImage = async (image: File, mask: File, prompt: string) => {
+    return _generateImageEdit(image, `Add ${prompt} into the masked area, blending it seamlessly with the scene lighting and perspective.`, 'add product', mask);
+};
+
+/**
+ * Renders the image onto a trading card template using Gemini 3 Pro for high-fidelity text.
+ */
+export const generateCardImage = async (image: File, cardPrompt: string) => {
+    // Uses Pro model for high fidelity text rendering on cards
+    return _generateImageEdit(image, cardPrompt, 'cardify', undefined, 'gemini-3-pro-image-preview');
+};
+
+/**
+ * Converts a rough sketch into a photorealistic image based on a prompt.
+ */
+export const generateSketchImage = async (image: File, prompt: string) => {
+    return _generateImageEdit(image, `Turn this sketch into a photorealistic image: ${prompt}`, 'sketch to image');
+};
+
+/**
+ * Applies a depth-of-field (bokeh) effect to the image.
+ */
+export const generateFocusImage = async (image: File, intensity: string) => {
+    return _generateImageEdit(image, `Apply a ${intensity} depth of field (bokeh) effect, blurring the background while keeping the subject sharp.`, 'focus');
+};
+
+/**
+ * Merges two images together based on a text instruction.
+ * @param base - The primary image.
+ * @param overlay - The secondary image to merge.
+ * @param prompt - Instructions on how to blend them.
+ */
+export const generateMergedImage = async (base: File, overlay: File, prompt: string) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const parts = [
+            await fileToGenerativePart(base),
+            await fileToGenerativePart(overlay),
+            { text: `Merge these two images. ${prompt} Return the single merged image.` }
+        ];
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: { parts }
+        });
+        return handleApiResponse(response, 'merge');
     });
 };
 
-export const generateCreativeText = async (
-    image: File,
-    type: 'quote' | 'caption' | 'pun'
-): Promise<{ text: string, color: string }> => {
+/**
+ * Extracts a color palette from the image using the multimodal model.
+ * Returns a JSON array of hex codes.
+ */
+export const generateColorPalette = async (image: File): Promise<string[]> => {
     return withRetry(async () => {
-        console.log(`Generating creative text (${type}) with Flash...`);
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+        const ai = getAiClient();
         const imagePart = await fileToGenerativePart(image);
-        
-        const prompt = `You are a social media expert and graphic designer. Analyze the provided image.
-        
-    Task 1: Generate a SINGLE, short, engaging ${type} suitable for a text overlay on this photo.
-    - It should be catchy, relevant to the visual content, and short (under 10 words).
-    - Do not use hashtags.
-    - Do not add quotes around the text.
-
-    Task 2: Suggest a hex color code for the text that would contrast well with the image (ensure readability).
-
-    Return the result as a JSON object: { "text": "your text here", "color": "#RRGGBB" }`;
-
-        const textPart = { text: prompt };
-
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: { parts: [imagePart, textPart] },
+            model: "gemini-2.5-flash",
+            contents: {
+                parts: [
+                    imagePart, 
+                    { text: "Extract the 5 most dominant and harmonious hex color codes from this image. Return ONLY a JSON array of strings." }
+                ]
+            },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING }
+                }
+            }
+        });
+        return JSON.parse(response.text || "[]");
+    });
+};
+
+/**
+ * Applies a color palette to the image using the AI model.
+ */
+export const applyColorPalette = async (image: File, palette: string[], selectedColor: string) => {
+    return _generateImageEdit(image, `Recolor the image using this palette: ${palette.join(', ')}. Emphasize ${selectedColor}.`, 'apply palette');
+};
+
+/**
+ * Replaces a specific source color with a target color within a tolerance range.
+ */
+export const generateRecoloredImage = async (image: File, source: string, target: string, tolerance: number) => {
+    return _generateImageEdit(image, `Replace the color ${source} with ${target} (tolerance ${tolerance}).`, 'recolor');
+};
+
+/**
+ * Applies the artistic style of one image to another (Style Transfer).
+ */
+export const generateStyledImage = async (image: File, styleImage: File) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const parts = [
+            await fileToGenerativePart(image),
+            await fileToGenerativePart(styleImage),
+            { text: "Apply the artistic style of the second image to the first image. Return the stylized image." }
+        ];
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: { parts }
+        });
+        return handleApiResponse(response, 'style transfer');
+    });
+};
+
+/**
+ * Generates captions for an image using Gemini 3 Pro with Search Grounding enabled.
+ */
+export const generateCaptions = async (image: File): Promise<{captions: string[], sources: any[]}> => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        // Use gemini-3-pro-preview for grounding
+        const response = await ai.models.generateContent({
+            model: "gemini-3-pro-preview",
+            contents: {
+                parts: [imagePart, { text: "Generate 3 creative captions for this image." }]
+            },
+            config: {
+                tools: [{ googleSearch: {} }]
+            }
+        });
+        
+        const lines = response.text?.split('\n').filter(l => l.trim().length > 0) || [];
+        const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+        
+        return { captions: lines.slice(0, 3), sources };
+    });
+};
+
+/**
+ * Generates creative variations of an image.
+ */
+export const generateImageVariations = async (image: File, creativity: string): Promise<string[] | null> => {
+    // Generate 4 variations
+    const prompt = `Generate 4 creative variations of this image. Creativity level: ${creativity}.`;
+    
+    const promises = Array(4).fill(null).map(async () => {
+        return withRetry(async () => {
+            const ai = getAiClient();
+            const imagePart = await fileToGenerativePart(image);
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash-image',
+                contents: { parts: [imagePart, { text: prompt }] }
+            });
+            return handleApiResponse(response, 'variation');
+        });
+    });
+    
+    return Promise.all(promises);
+};
+
+/**
+ * Generates suggested prompts for adding objects or replacing content.
+ */
+export const generatePromptSuggestions = async (image: File, context: 'add' | 'replace'): Promise<string[]> => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const text = context === 'add' 
+            ? "Suggest 5 objects that would look natural added to this scene. Return JSON array of strings."
+            : "Suggest 5 creative ways to replace or modify objects in this image. Return JSON array of strings.";
+        
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: { parts: [imagePart, { text }] },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING }
+                }
+            }
+        });
+        return JSON.parse(response.text || "[]");
+    });
+};
+
+/**
+ * Generates text overlays (quotes, puns) based on image content.
+ */
+export const generateCreativeText = async (image: File, type: 'quote' | 'caption' | 'pun'): Promise<{ text: string, color: string }> => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: {
+                parts: [imagePart, { text: `Generate a creative ${type} for this image and suggest a contrasting hex color for the text. Return JSON: { "text": "...", "color": "#..." }` }]
+            },
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
                         text: { type: Type.STRING },
-                        color: { type: Type.STRING },
-                    },
-                },
-                safetySettings,
-            },
-        });
-
-        const jsonText = response.text ? response.text.trim() : '';
-        if (jsonText) {
-            try {
-                return JSON.parse(jsonText);
-            } catch (e) {
-                console.error("Failed to parse creative text JSON:", e);
-                return { text: "Hello World", color: "#FFFFFF" };
+                        color: { type: Type.STRING }
+                    }
+                }
             }
-        }
-        return { text: "Hello World", color: "#FFFFFF" };
-    });
-};
-
-export const generateImageVariations = async (
-    image: File,
-    creativity: 'low' | 'medium' | 'high'
-): Promise<string[]> => {
-    return withRetry(async () => {
-        console.log(`Generating image variations with ${creativity} creativity...`);
-        const imagePart = await fileToGenerativePart(image);
-        const prompt = `Generate 3 creative variations of the provided image.
-    Creativity Level: ${creativity}.
-    - Low: Make subtle changes to style, lighting, or background details.
-    - Medium: Re-imagine the scene with a different artistic style or setting, but keep the main subject recognizable.
-    - High: Take the core concept of the image and create a completely new, imaginative interpretation.
-    The output must be 3 distinct images. Do not return text.`;
-        const textPart = { text: prompt };
-
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-        const response: GenerateContentResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
-            contents: { parts: [imagePart, textPart] },
-            config: {
-                // Per guidelines: 
-                // - Must be an array with a single Modality.IMAGE element.
-                // - Do not add other configs.
-                responseModalities: [Modality.IMAGE],
-            },
         });
-        
-        const imageParts = response.candidates?.[0]?.content?.parts?.filter(part => part.inlineData);
-
-        if (imageParts && imageParts.length > 0) {
-            return imageParts.map(part => `data:${part.inlineData!.mimeType};base64,${part.inlineData!.data}`);
-        }
-
-        throw new Error('The AI model did not return any image variations.');
+        return JSON.parse(response.text || '{"text": "", "color": "#ffffff"}');
     });
 };
 
-export const generateExpansionSuggestions = async (
-    image: File
-): Promise<Array<{ direction: 'top' | 'bottom' | 'left' | 'right', prompt: string }>> => {
+/**
+ * Detects objects in an image and returns bounding boxes.
+ */
+export const detectObjects = async (image: File, label: string): Promise<Array<{ ymin: number, xmin: number, ymax: number, xmax: number }>> => {
     return withRetry(async () => {
-        console.log('Generating expansion suggestions with Flash...');
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+        const ai = getAiClient();
         const imagePart = await fileToGenerativePart(image);
-
-        const prompt = `Analyze the provided image and suggest 2-3 logical and creative ways to generatively expand it. For each suggestion, provide a 'direction' ('top', 'bottom', 'left', 'right') and a 'prompt' (e.g., 'extend with more blue sky'). Focus on natural, coherent extensions. Return a JSON array of objects.
-
-    Example JSON format:
-    [
-      { "direction": "top", "prompt": "more blue sky with fluffy clouds" },
-      { "direction": "bottom", "prompt": "a calm, clear lake reflecting the scene" },
-      { "direction": "left", "prompt": "a continuation of the forest into the distance" }
-    ]`;
-
-        const textPart = { text: prompt };
-
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: { parts: [imagePart, textPart] },
+            model: "gemini-2.5-flash",
+            contents: {
+                parts: [imagePart, { text: `Detect bounding boxes for "${label}". Return a JSON array of objects with keys: ymin, xmin, ymax, xmax (values 0-1000).` }]
+            },
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
@@ -1049,446 +603,207 @@ export const generateExpansionSuggestions = async (
                     items: {
                         type: Type.OBJECT,
                         properties: {
-                            direction: { type: Type.STRING },
-                            prompt: { type: Type.STRING },
-                        },
-                        required: ['direction', 'prompt']
-                    },
-                },
-                safetySettings,
-            },
-        });
-
-        const jsonText = response.text ? response.text.trim() : '';
-        if (jsonText) {
-            try {
-                const result = JSON.parse(jsonText);
-                // Basic validation for the expected structure
-                if (Array.isArray(result) && result.every(item => typeof item === 'object' && item.direction && item.prompt)) {
-                    return result;
+                            ymin: { type: Type.NUMBER },
+                            xmin: { type: Type.NUMBER },
+                            ymax: { type: Type.NUMBER },
+                            xmax: { type: Type.NUMBER },
+                        }
+                    }
                 }
-                console.error("Generated JSON is not in the expected format:", result);
-                return [];
-            } catch (e) {
-                console.error("Failed to parse expansion suggestions JSON:", e);
-                return [];
             }
-        }
-        return [];
+        });
+        return JSON.parse(response.text || "[]");
     });
 };
 
+/**
+ * Generates a segmentation mask visualization for a specific object label.
+ */
+export const generateSegmentationMask = async (image: File, label: string): Promise<string | null> => {
+    // This asks the model to visualize the mask.
+    return _generateImageEdit(image, `Generate a black and white segmentation mask for "${label}". White pixels = ${label}, Black = background.`, 'mask');
+};
 
-export const generatePromptSuggestions = async (
-    image: File,
-    context: 'add' | 'replace'
-): Promise<string[]> => {
+/**
+ * Analyzes the image to suggest creative outpainting directions.
+ */
+export const generateExpansionSuggestions = async (image: File): Promise<Array<{ direction: 'top' | 'bottom' | 'left' | 'right', prompt: string }>> => {
     return withRetry(async () => {
-        console.log(`Generating prompt suggestions for context: ${context} with Flash Lite`);
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-
+        const ai = getAiClient();
         const imagePart = await fileToGenerativePart(image);
-        let prompt = `Analyze the provided image. You are a creative assistant. Your goal is to suggest ideas for photo editing.`;
-
-        if (context === 'add') {
-            prompt += ` The user wants to add an object to the scene. Suggest 3-4 creative but contextually appropriate objects they could add. Keep the suggestions short and descriptive (e.g., "a small potted succulent", "a vintage camera", "a steaming mug of coffee").`;
-        } else { // 'replace'
-            prompt += ` The user wants to replace an object in the scene. Suggest 3-4 creative ideas for what to replace an object with, based on the image's context. Keep the suggestions short and descriptive (e.g., "a bouquet of wildflowers", "a crystal sculpture", "a miniature T-Rex").`;
-        }
-        
-        prompt += ` Return the suggestions as a JSON object with a single key "suggestions" which is an array of strings.`;
-
-        const textPart = { text: prompt };
-
         const response = await ai.models.generateContent({
-            model: 'gemini-flash-lite-latest', // Low latency
-            contents: { parts: [imagePart, textPart] },
+            model: "gemini-2.5-flash",
+            contents: {
+                parts: [imagePart, { text: "Analyze the image and suggest 3 creative outpainting/expansion ideas with directions. Return JSON array of objects: { direction, prompt }." }]
+            },
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        suggestions: {
-                            type: Type.ARRAY,
-                            items: { type: Type.STRING },
-                        },
-                    },
-                },
-                safetySettings,
-            },
-        });
-
-        const jsonText = response.text ? response.text.trim() : '';
-        if (jsonText) {
-            try {
-                const result = JSON.parse(jsonText);
-                return result.suggestions || [];
-            } catch (e) {
-                console.error("Failed to parse prompt suggestions JSON:", e);
-                return [];
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            direction: { type: Type.STRING, enum: ['top', 'bottom', 'left', 'right'] },
+                            prompt: { type: Type.STRING }
+                        }
+                    }
+                }
             }
-        }
-        return [];
+        });
+        return JSON.parse(response.text || "[]");
     });
 };
 
-export const generateAutoAdjustments = async (
-    image: File
-): Promise<Record<string, number>> => {
+/**
+ * Generates automatic adjustment values (brightness, contrast, etc.) for an image.
+ */
+export const generateAutoAdjustments = async (image: File): Promise<Record<string, number>> => {
     return withRetry(async () => {
-        console.log('Generating auto adjustments...');
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+        const ai = getAiClient();
         const imagePart = await fileToGenerativePart(image);
-        const prompt = `You are a professional photo editor. Analyze the provided image and determine the optimal adjustments to enhance its quality. Provide adjustments for brightness, contrast, saturation, highlights, shadows, vibrance, temperature, and sharpness. Return the values as a JSON object, where each value is a number between -100 and 100. For example: {"brightness": 10, "contrast": 5, "saturation": -5, ...}. Only return the JSON object.`;
-        const textPart = { text: prompt };
-
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: { parts: [imagePart, textPart] },
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        brightness: { type: Type.NUMBER },
-                        contrast: { type: Type.NUMBER },
-                        saturation: { type: Type.NUMBER },
-                        highlights: { type: Type.NUMBER },
-                        shadows: { type: Type.NUMBER },
-                        vibrance: { type: Type.NUMBER },
-                        temperature: { type: Type.NUMBER },
-                        sharpness: { type: Type.NUMBER },
-                    },
-                },
-                safetySettings,
+            model: "gemini-2.5-flash",
+            contents: {
+                parts: [imagePart, { text: "Analyze this image and suggest adjustments values (-100 to 100) for brightness, contrast, saturation, etc. Return JSON." }]
             },
+            config: { responseMimeType: "application/json" }
         });
-
-        const jsonText = response.text ? response.text.trim() : '';
-        if (jsonText) {
-            try {
-                const result = JSON.parse(jsonText);
-                return result;
-            } catch (e) {
-                console.error("Failed to parse auto-adjustments JSON:", e);
-                throw new Error("AI failed to return valid adjustment data.");
-            }
-        }
-        throw new Error("AI did not return any adjustment data.");
+        return JSON.parse(response.text || "{}");
     });
 };
 
-export const generateLuckyAdjustment = async (
-    image: File
-): Promise<string> => {
+/**
+ * Suggests a unique creative prompt for adjustment ("Feeling Lucky").
+ */
+export const generateLuckyAdjustment = async (image: File): Promise<string> => {
     return withRetry(async () => {
-        console.log('Generating lucky adjustment with Gemini 3 Pro...');
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+        const ai = getAiClient();
         const imagePart = await fileToGenerativePart(image);
-        const prompt = `You are a creative and professional photographer AI. Analyze the provided image and suggest a single, creative, and stylistic adjustment prompt. The prompt should be a descriptive instruction that could be given to a photo editor.
-
-    Examples of good prompts:
-    - "Give the image a warm, golden-hour glow with soft, hazy light and slightly muted colors."
-    - "Apply a cool, cinematic blue tint with high contrast shadows and sharpened details."
-    - "Transform it into a dreamy, ethereal photo with a soft-focus effect and pastel color grading."
-    - "Make it look like a vintage film photo from the 1970s with faded colors and a subtle grain."
-
-    Do not add any conversational text, explanations, or quotes. Only return the single prompt string as plain text.`;
-        const textPart = { text: prompt };
-
         const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
-            contents: { parts: [imagePart, textPart] },
-            config: {
-                safetySettings,
-            },
-        });
-
-        const luckyPrompt = response.text ? response.text.trim() : '';
-        if (!luckyPrompt) {
-            throw new Error("The AI did not return a lucky adjustment suggestion.");
-        }
-        return luckyPrompt;
-    });
-}
-
-export const enhancePrompt = async (
-    originalPrompt: string
-): Promise<string> => {
-    if (!originalPrompt.trim()) return '';
-    return withRetry(async () => {
-        console.log(`Enhancing prompt: ${originalPrompt}`);
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-        const prompt = `You are a professional prompt engineer for generative AI art.
-    The user has provided a basic prompt: "${originalPrompt}".
-    Your task is to rewrite and expand this prompt to generate a significantly higher quality, more detailed, and artistic result.
-    Add relevant details about lighting, style, texture, composition, and camera settings (e.g., "8k", "cinematic lighting", "photorealistic", "highly detailed").
-    Keep the core intent of the original prompt but make it "pro".
-    Return ONLY the enhanced prompt text.`;
-        const textPart = { text: prompt };
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-flash-lite-latest', // Flash Lite is perfect for low-latency text expansion
-            contents: { parts: [textPart] },
-            config: { safetySettings }
-        });
-
-        return response.text ? response.text.trim() : originalPrompt;
-    });
-};
-
-export const generateSmartReplies = async (
-    history: ChatMessage[]
-): Promise<string[]> => {
-    return withRetry(async () => {
-        console.log('Generating smart replies with Flash Lite...');
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-        
-        // Provide the last few messages for context (keep it lightweight)
-        const recentHistory = history.slice(-5).map(msg => `${msg.role}: ${msg.text}`).join('\n');
-        
-        const prompt = `You are a helpful AI assistant. Based on the following conversation history, suggest 3 short, relevant, and natural follow-up responses or questions that the USER might want to say next.
-        
-    Conversation History:
-    ${recentHistory}
-
-    Return the 3 suggestions as a JSON object with a single key "replies" which is an array of strings. Keep them concise (under 10 words).`;
-        
-        const response = await ai.models.generateContent({
-            model: 'gemini-flash-lite-latest',
-            contents: { parts: [{ text: prompt }] },
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        replies: {
-                            type: Type.ARRAY,
-                            items: { type: Type.STRING },
-                        },
-                    },
-                },
-                safetySettings,
-            },
-        });
-
-        const jsonText = response.text ? response.text.trim() : '';
-        if (jsonText) {
-            try {
-                const result = JSON.parse(jsonText);
-                return result.replies || [];
-            } catch (e) {
-                console.error("Failed to parse smart replies JSON:", e);
-                return [];
+            model: "gemini-2.5-flash",
+            contents: {
+                parts: [imagePart, { text: "Suggest a creative and unique adjustment prompt for this image." }]
             }
-        }
-        return [];
+        });
+        return response.text || "Make it pop!";
     });
 };
 
-export const detectObjects = async (
-    image: File,
-    label: string
-): Promise<{ ymin: number, xmin: number, ymax: number, xmax: number }[]> => {
+/**
+ * Analyzes an image to populate trading card details (stats, name, flavor text).
+ */
+export const generateCardDetails = async (image: File, cardType: string): Promise<any> => {
     return withRetry(async () => {
-        console.log(`Detecting objects: ${label}`);
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+        const ai = getAiClient();
         const imagePart = await fileToGenerativePart(image);
-        const prompt = `Detect the bounding boxes for objects matching the description: "${label}". 
-    Return the result as a JSON object with a single key "boxes" which is an array of objects.
-    Each object must have 'ymin', 'xmin', 'ymax', 'xmax' as integers on a scale of 0 to 1000.
-    If no objects are found, return an empty array.`;
-
-        const textPart = { text: prompt };
-
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: { parts: [imagePart, textPart] },
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        boxes: {
-                            type: Type.ARRAY,
-                            items: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    ymin: { type: Type.NUMBER },
-                                    xmin: { type: Type.NUMBER },
-                                    ymax: { type: Type.NUMBER },
-                                    xmax: { type: Type.NUMBER },
-                                },
-                            },
-                        },
-                    },
-                },
-                safetySettings,
+            model: "gemini-2.5-flash",
+            contents: {
+                parts: [imagePart, { text: `Analyze this image and generate details for a ${cardType} trading card. Return JSON keys suitable for that game.` }]
             },
+            config: { responseMimeType: "application/json" }
         });
-
-        const jsonText = response.text ? response.text.trim() : '';
-        if (jsonText) {
-            try {
-                const result = JSON.parse(jsonText);
-                return result.boxes || [];
-            } catch (e) {
-                console.error("Failed to parse detection JSON:", e);
-                return [];
-            }
-        }
-        return [];
+        return JSON.parse(response.text || "{}");
     });
 };
 
-export const generateSegmentationMask = async (
-    image: File,
-    label: string
-): Promise<string> => {
-    console.log(`Generating segmentation mask for: ${label}`);
-    const imagePart = await fileToGenerativePart(image);
+// --- Chat & Analysis ---
+
+/**
+ * Streams chat responses from Gemini.
+ * @param history - Previous chat messages.
+ * @param message - New user message.
+ * @param file - Optional file attachment.
+ * @param useReasoning - Whether to use `gemini-3-pro-preview` (true) or `gemini-2.5-flash` (false).
+ */
+export async function* chatWithGeminiStream(
+    history: { role: string, text: string }[], 
+    message: string, 
+    file?: File,
+    useReasoning: boolean = false
+) {
+    const ai = getAiClient();
+    const model = useReasoning ? 'gemini-3-pro-preview' : 'gemini-2.5-flash';
     
-    const prompt = `Create a high-contrast binary mask image for the object: "${label}".
-    Instructions:
-    - The object ("${label}") must be pure WHITE.
-    - The background and everything else must be pure BLACK.
-    - Ensure clear, precise edges.
-    - The output should be a solid silhouette of the object.
-    
-    Output: Return ONLY the mask image.`;
+    // Convert history to compatible format with explicit Part typing
+    const chatHistory: Content[] = history.map(msg => ({
+        role: msg.role,
+        parts: [{ text: msg.text } as Part]
+    }));
 
-    const textPart = { text: prompt };
-    
-    // We use the image model to generate the mask visually
-    return _generateImageEdit([imagePart, textPart], 'segmentation mask');
-};
+    const chat = ai.chats.create({
+        model: model,
+        history: chatHistory
+    });
 
-export const generateSketchImage = async (
-    compositedImage: File,
-    prompt: string,
-): Promise<string> => {
-    console.log('Starting Sketch-to-Image generation:', prompt);
-    const imagePart = await fileToGenerativePart(compositedImage);
-    
-    const fullPrompt = `You are an expert digital artist.
-User Task: "Transform the rough sketch on this image into a realistic, high-quality artwork."
-User Prompt: "${prompt}"
-
-Instructions:
-- The provided image contains a rough, colored sketch overlaid on a base image (or a blank canvas).
-- Your goal is to interpret the sketch lines and colors as a guide for the structure and composition of the final image.
-- The final output should be photorealistic (unless the prompt specifies a different style) and high resolution.
-- Blend the sketched elements seamlessly into the scene if there is a background.
-- Maintain the overall composition defined by the sketch.
-
-Output: Return ONLY the final generated image. Do not return text.`;
-
-    const textPart = { text: fullPrompt };
-    return _generateImageEdit([imagePart, textPart], 'sketch-to-image');
-};
-
-export const generateFocusImage = async (
-    image: File,
-    intensity: 'subtle' | 'medium' | 'strong',
-): Promise<string> => {
-    console.log(`Starting AI Focus (Blur) with intensity: ${intensity}`);
-    const imagePart = await fileToGenerativePart(image);
-    
-    let desc = "";
-    switch(intensity) {
-        case 'subtle': desc = "Apply a subtle, natural bokeh effect to the background, keeping the main subject perfectly sharp."; break;
-        case 'medium': desc = "Apply a standard portrait mode effect with noticeable background blur to separate the subject."; break;
-        case 'strong': desc = "Apply a strong, creamy bokeh blur to the background for a dramatic depth-of-field effect."; break;
+    const parts: Part[] = [{ text: message }];
+    if (file) {
+        parts.unshift(await fileToGenerativePart(file));
     }
 
-    const prompt = `You are an expert photo editor.
-Task: Simulate a professional camera lens depth-of-field effect (Bokeh).
-${desc}
-- Identify the main subject(s) of the photo and keep them completely in focus and sharp.
-- Blur ONLY the background and foreground elements that are not the main subject.
-- The transition between sharp and blurred areas should be natural and follow the depth of the scene.
+    const result = await chat.sendMessageStream({ message: parts });
+    for await (const chunk of result) {
+        yield { 
+            text: chunk.text, 
+            groundingMetadata: chunk.candidates?.[0]?.groundingMetadata 
+        };
+    }
+}
 
-Output: Return ONLY the final image. Do not return text.`;
-
-    const textPart = { text: prompt };
-    return _generateImageEdit([imagePart, textPart], 'focus blur');
-};
-
-
-// --- NEW: Chat & Multimodal Features ---
-
-export const analyzeVideo = async (
-    videoFile: File,
-    prompt: string
-): Promise<string> => {
+/**
+ * Analyzes a video file to describe its content.
+ */
+export const analyzeVideo = async (videoFile: File, prompt: string): Promise<string> => {
     return withRetry(async () => {
-        console.log('Analyzing video with Gemini 3 Pro...');
-        // Note: Video analysis requires uploading to File API first or using base64 for short clips.
-        // Since full video file upload via File API is complex to implement purely client-side without a backend proxy for upload tokens,
-        // we will use base64 for short clips (< 20MB) or warn user.
-        // For robust implementation, we'd need the File API upload flow.
-        // Here we assume short clip base64 for "fast preview" style analysis.
+        const ai = getAiClient();
         
-        if (videoFile.size > 20 * 1024 * 1024) {
-            throw new Error("Video file is too large for client-side analysis. Please upload a clip under 20MB.");
-        }
-
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-        const { inlineData } = await fileToGenerativePart(videoFile);
+        if (videoFile.size > 20 * 1024 * 1024) throw new Error("Video too large for inline analysis.");
         
+        const filePart = await fileToGenerativePart(videoFile);
         const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
-            contents: { parts: [inlineData, { text: prompt }] },
-            config: { safetySettings }
+            model: "gemini-2.5-flash",
+            contents: { parts: [filePart, { text: prompt }] }
         });
-
-        return response.text ? response.text.trim() : "I couldn't analyze the video.";
+        return response.text || "";
     });
 };
 
-export const transcribeAudio = async (
-    audioFile: File
-): Promise<string> => {
+/**
+ * Transcribes an audio file.
+ */
+export const transcribeAudio = async (audioFile: File): Promise<string> => {
     return withRetry(async () => {
-        console.log('Transcribing audio with Gemini 2.5 Flash...');
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-        const { inlineData } = await fileToGenerativePart(audioFile);
-
+        const ai = getAiClient();
+        const filePart = await fileToGenerativePart(audioFile);
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: { parts: [inlineData, { text: "Transcribe this audio file. Output only the text." }] },
-            config: { safetySettings }
+            model: "gemini-2.5-flash",
+            contents: { parts: [filePart, { text: "Transcribe this audio." }] }
         });
-
-        return response.text ? response.text.trim() : "Transcription failed.";
+        return response.text || "";
     });
 };
 
-export const generateSpeech = async (
-    text: string,
-    voice: 'Puck' | 'Charon' | 'Kore' | 'Fenrir' | 'Zephyr' = 'Puck'
-): Promise<ArrayBuffer> => {
+/**
+ * Generates spoken audio from text using `gemini-2.5-flash-preview-tts`.
+ * @returns ArrayBuffer of the audio data.
+ */
+export const generateSpeech = async (text: string): Promise<ArrayBuffer> => {
     return withRetry(async () => {
-        console.log('Generating speech (TTS)...');
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-
+        const ai = getAiClient();
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-preview-tts',
             contents: { parts: [{ text }] },
             config: {
                 responseModalities: [Modality.AUDIO],
                 speechConfig: {
-                    voiceConfig: {
-                        prebuiltVoiceConfig: { voiceName: voice },
-                    },
-                },
-            },
+                    voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } }
+                }
+            }
         });
-
+        
         const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-        if (!base64Audio) throw new Error("No audio returned");
-
-        // Decode base64 to ArrayBuffer
+        if (!base64Audio) throw new Error("No audio generated");
+        
         const binaryString = atob(base64Audio);
         const len = binaryString.length;
         const bytes = new Uint8Array(len);
@@ -1499,121 +814,48 @@ export const generateSpeech = async (
     });
 };
 
-export interface ChatMessage {
-    role: 'user' | 'model';
-    text: string;
-    image?: string; // base64
-    groundingMetadata?: any;
-}
-
-export const chatWithGemini = async (
-    history: ChatMessage[],
-    newMessage: string,
-    image?: File,
-    useReasoning: boolean = false,
-    useGrounding: boolean = true
-): Promise<ChatMessage> => {
+/**
+ * Generates smart reply suggestions for the chat context.
+ */
+export const generateSmartReplies = async (history: any[]): Promise<string[]> => {
     return withRetry(async () => {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-        
-        // Construct history for API
-        const contents: Content[] = await Promise.all(history.map(async msg => {
-            const parts: Part[] = [{ text: msg.text }];
-            // Simplified: sending text history
-            return { role: msg.role, parts };
-        }));
-
-        const currentParts: Part[] = [{ text: newMessage }];
-        
-        if (image) {
-            const { inlineData } = await fileToGenerativePart(image);
-            currentParts.unshift(inlineData);
-        }
-
-        // Use Gemini 3 Pro for reasoning, Flash for fast chat
-        const model = useReasoning ? 'gemini-3-pro-preview' : 'gemini-2.5-flash';
-        const tools = [];
-        
-        if (useGrounding) {
-            tools.push({ googleSearch: {} });
-            tools.push({ googleMaps: {} });
-        }
-
-        const config: any = { safetySettings, tools };
-        
-        if (useReasoning) {
-            config.thinkingConfig = { thinkingBudget: 1024 }; // Enable thinking
-        }
-
-        const chat = ai.chats.create({
-            model,
-            history: contents,
-            config
+        const ai = getAiClient();
+        const context = history.slice(-3).map(h => `${h.role}: ${h.text}`).join('\n');
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: `Based on this chat context, suggest 3 short, relevant replies for the user.\n${context}`,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING }
+                }
+            }
         });
-
-        const result = await chat.sendMessage({ message: currentParts });
-        
-        return {
-            role: 'model',
-            text: result.text || "I couldn't generate a response.",
-            groundingMetadata: result.candidates?.[0]?.groundingMetadata
-        };
+        return JSON.parse(response.text || "[]");
     });
 };
 
-// New Streaming Chat Function
-export const chatWithGeminiStream = async function* (
-    history: ChatMessage[],
-    newMessage: string,
-    image?: File,
-    useReasoning: boolean = false,
-    useGrounding: boolean = true
-) {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-    
-    const contents: Content[] = await Promise.all(history.map(async msg => {
-        return { role: msg.role, parts: [{ text: msg.text }] };
-    }));
-
-    const currentParts: Part[] = [{ text: newMessage }];
-    
-    if (image) {
-        const { inlineData } = await fileToGenerativePart(image);
-        currentParts.unshift(inlineData);
-    }
-
-    const model = useReasoning ? 'gemini-3-pro-preview' : 'gemini-2.5-flash';
-    const tools = [];
-    
-    if (useGrounding) {
-        tools.push({ googleSearch: {} });
-        tools.push({ googleMaps: {} });
-    }
-
-    const config: any = { 
-        safetySettings, 
-        tools,
-        // System Instructions to encourage structured data usage when helpful
-        systemInstruction: "You are Luminescent AI, a creative and helpful assistant. Be concise. If you need to present comparisons or structured data, please use Markdown tables."
-    };
-    
-    if (useReasoning) {
-        config.thinkingConfig = { thinkingBudget: 1024 };
-    }
-
-    const chat = ai.chats.create({
-        model,
-        history: contents,
-        config
+/**
+ * Generates meme captions for an image.
+ */
+export const generateMemeSuggestions = async (image: File): Promise<string[]> => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: {
+                parts: [imagePart, { text: "Generate 5 funny meme captions for this image." }]
+            },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING }
+                }
+            }
+        });
+        return JSON.parse(response.text || "[]");
     });
-
-    const resultStream = await chat.sendMessageStream({ message: currentParts });
-
-    for await (const chunk of resultStream) {
-        // Yield an object to return both text and potential metadata updates
-        yield {
-            text: chunk.text,
-            groundingMetadata: chunk.candidates?.[0]?.groundingMetadata
-        };
-    }
 };

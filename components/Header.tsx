@@ -10,6 +10,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import ThemeSelector from './ThemeSelector';
 import ModeSelector from './ModeSelector';
 import BackgroundSelector from './BackgroundSelector';
+import LanguageSelector from './LanguageSelector';
 
 // Internal component to handle time updates independently
 const DigitalClock: React.FC = () => {
@@ -88,7 +89,7 @@ const Header: React.FC<HeaderProps> = ({
                         data-tooltip-id="app-tooltip"
                         data-tooltip-content="AI Assistant"
                     >
-                        <ChatIcon className="w-5 h-5" />
+                        <ChatIcon className="w-7 h-7" />
                     </button>
                 )}
                 {onShortcutsClick && (
@@ -98,7 +99,7 @@ const Header: React.FC<HeaderProps> = ({
                         data-tooltip-id="app-tooltip"
                         data-tooltip-content={t('showShortcuts')}
                     >
-                        <QuestionMarkIcon className="w-5 h-5" />
+                        <QuestionMarkIcon className="w-7 h-7" />
                     </button>
                 )}
                 {isHistoryAvailable && onHistoryClick && (
@@ -108,7 +109,7 @@ const Header: React.FC<HeaderProps> = ({
                         data-tooltip-id="app-tooltip"
                         data-tooltip-content={t('showHistory')}
                     >
-                        <HistoryIcon className="w-5 h-5" />
+                        <HistoryIcon className="w-7 h-7" />
                     </button>
                 )}
             </div>
@@ -123,7 +124,7 @@ const Header: React.FC<HeaderProps> = ({
             >
               <div className="relative">
                   <div className="absolute inset-0 bg-theme-accent/50 blur-lg rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse"></div>
-                  <LuminescenceIcon className="w-8 h-8 relative z-10 group-hover:scale-110 transition-transform duration-300" />
+                  <LuminescenceIcon className="w-9 h-9 relative z-10 group-hover:scale-110 transition-transform duration-300" />
               </div>
               <h1 className="text-2xl font-extrabold tracking-tight text-theme-gradient group-hover:brightness-110 transition-all hidden md:block"
                   style={{ backgroundSize: '200% 200%', animation: 'animated-gradient-text 5s ease infinite' }}>
@@ -146,7 +147,7 @@ const Header: React.FC<HeaderProps> = ({
               aria-label={t('uploadNew')}
               className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-800 dark:text-gray-200 rounded-lg transition-all duration-300 hover:bg-gray-200 dark:hover:bg-white/10 font-semibold text-sm group hover:shadow-lg hover:shadow-theme-accent/10"
             >
-              <UploadIcon className="w-4 h-4 group-hover:-translate-y-0.5 transition-transform" />
+              <UploadIcon className="w-5 h-5 group-hover:-translate-y-0.5 transition-transform" />
               <span className="hidden sm:inline">{t('uploadNew')}</span>
             </button>
             
@@ -157,11 +158,12 @@ const Header: React.FC<HeaderProps> = ({
                 data-tooltip-content={t('wikiTitle')}
                 className="p-2 bg-transparent rounded-full transition-colors hover:bg-gray-200 dark:hover:bg-white/10 relative"
                 >
-                <BookIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                <BookIcon className="w-6 h-6 text-gray-700 dark:text-gray-300" />
                 </button>
                 <div className="w-px h-4 bg-gray-300 dark:bg-gray-700 mx-1"></div>
                 <BackgroundSelector />
                 <ThemeSelector />
+                <LanguageSelector />
                 <ModeSelector />
             </div>
         </div>

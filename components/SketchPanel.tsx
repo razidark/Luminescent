@@ -36,7 +36,8 @@ const SketchPanel: React.FC<SketchPanelProps> = ({
 
   const predefinedColors = [
       '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF', 
-      '#FFFF00', '#00FFFF', '#FF00FF', '#FFA500', '#800080'
+      '#FFFF00', '#00FFFF', '#FF00FF', '#FFA500', '#800080',
+      '#A52A2A', '#808080', '#008080', '#FFC0CB', '#4B0082'
   ];
 
   return (
@@ -61,14 +62,14 @@ const SketchPanel: React.FC<SketchPanelProps> = ({
                 onClick={() => setTool('brush')}
                 className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-all text-sm font-bold ${tool === 'brush' ? 'bg-theme-accent text-white shadow-md' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10'}`}
             >
-                <PencilIcon className="w-4 h-4" />
+                <PencilIcon className="w-5 h-5" />
                 Draw
             </button>
             <button
                 onClick={() => setTool('eraser')}
                 className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-md transition-all text-sm font-bold ${tool === 'eraser' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-md' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10'}`}
             >
-                <EraserIcon className="w-4 h-4" />
+                <EraserIcon className="w-5 h-5" />
                 Erase
             </button>
          </div>

@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -60,6 +61,7 @@ interface EditorContextState {
     handleApplySketch: (sketchDataUrl: string, prompt: string) => Promise<void>;
     handleApplyFocus: (intensity: 'subtle' | 'medium' | 'strong') => Promise<void>;
     handleMagicMask: (label: string) => Promise<string | null>;
+    handleApplyMerge: (mergeImage: File, prompt: string) => Promise<void>;
 }
 
 const EditorContext = React.createContext<EditorContextState | undefined>(undefined);
@@ -620,47 +622,32 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children, curren
     const handleApplySketch = React.useCallback(async (sketchDataUrl: string, prompt: string) => {
         if (!currentImage) { setError(t('errorNoImageToEdit')); return; }
         
-        // Composite Sketch + Image before sending
-        // We can do this efficiently in an offscreen canvas or similar logic here
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+        setIsLoading(true);
+        setLoadingMessage(t('loadingGenerateImages'));
+        setError(null);
 
-        const img = await new Promise<HTMLImageElement>(resolve => {
-            const i = new Image();
-            i.onload = () => resolve(i);
-            i.src = URL.createObjectURL(currentImage);
-        });
-        
-        const sketch = await new Promise<HTMLImageElement>(resolve => {
-            const i = new Image();
-            i.onload = () => resolve(i);
-            i.src = sketchDataUrl;
-        });
+        try {
+            const sketchFile = dataURLtoFile(sketchDataUrl, 'sketch.png');
+            // Offload compositing to Web Worker to prevent UI freeze on large images
+            const compositedFile = await processImageWithWorker('COMPOSITE', { 
+                image: currentImage, 
+                overlayImage: sketchFile 
+            });
 
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        
-        // Draw original image
-        ctx.drawImage(img, 0, 0);
-        // Draw sketch overlay
-        ctx.drawImage(sketch, 0, 0, img.naturalWidth, img.naturalHeight);
-        
-        const compositedBlob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
-        if (!compositedBlob) return;
-        const compositedFile = new File([compositedBlob], 'composited_sketch.png', { type: 'image/png' });
-
-        await handleApiCall(
-            geminiService.generateSketchImage,
-            [compositedFile, prompt],
-            'loadingGenerateImages',
-            {
+            const resultDataUrl = await geminiService.generateSketchImage(compositedFile, prompt);
+            const resultFile = dataURLtoFile(resultDataUrl, `sketch-result-${Date.now()}.png`);
+            
+            addImageToHistory(resultFile, {
                 action: t('actionSketch').replace('{prompt}', prompt),
                 actionKey: 'actionSketch',
                 actionParams: { prompt }
-            }
-        );
-    }, [currentImage, handleApiCall, t, setError]);
+            });
+        } catch (err) {
+            handleApiError(err);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [currentImage, addImageToHistory, handleApiError, t, setError]);
 
     const handleApplyFocus = React.useCallback(async (intensity: 'subtle' | 'medium' | 'strong') => {
         if (!currentImage) { setError(t('errorNoImageToEdit')); return; }
@@ -669,6 +656,16 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children, curren
             [currentImage, intensity],
             'loadingFilter', // Reusing loading message
             { action: t('actionFocus'), actionKey: 'actionFocus' }
+        );
+    }, [currentImage, handleApiCall, t, setError]);
+
+    const handleApplyMerge = React.useCallback(async (mergeImage: File, prompt: string) => {
+        if (!currentImage) { setError(t('errorNoImageToEdit')); return; }
+        await handleApiCall(
+            geminiService.generateMergedImage,
+            [currentImage, mergeImage, prompt],
+            'loadingMerge',
+            { action: t('actionMerge'), actionKey: 'actionMerge' }
         );
     }, [currentImage, handleApiCall, t, setError]);
 
@@ -724,6 +721,7 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children, curren
         handleApplySketch,
         handleApplyFocus,
         handleMagicMask,
+        handleApplyMerge
     }), [
         currentImage,
         isLoading,
@@ -769,7 +767,8 @@ export const EditorProvider: React.FC<EditorProviderProps> = ({ children, curren
         handleGenerateExpansionSuggestions,
         handleApplySketch,
         handleApplyFocus,
-        handleMagicMask
+        handleMagicMask,
+        handleApplyMerge
     ]);
 
     return (

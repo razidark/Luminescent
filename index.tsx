@@ -1,4 +1,3 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -11,7 +10,6 @@ import { LanguageProvider } from './contexts/LanguageContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { BackgroundProvider } from './contexts/BackgroundContext';
-import './index.css';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

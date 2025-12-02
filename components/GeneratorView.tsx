@@ -85,7 +85,7 @@ const GeneratorView: React.FC<GeneratorViewProps> = ({
                                             className={`p-3 bg-white/10 text-gray-200 rounded-full transition-all duration-200 ${savedStates[index] ? 'bg-green-500/50 cursor-default' : 'hover:bg-theme-accent-hover'}`}
                                             disabled={savedStates[index]}
                                         >
-                                            <SaveIcon className="w-6 h-6" />
+                                            <SaveIcon className="w-8 h-8" />
                                         </button>
                                         <button
                                             onClick={() => onSelectForEditing(imgSrc)}
@@ -93,7 +93,7 @@ const GeneratorView: React.FC<GeneratorViewProps> = ({
                                             data-tooltip-content={t('editImage')}
                                             className="p-3 bg-white/10 text-gray-200 rounded-full transition-colors hover:bg-theme-accent-hover"
                                         >
-                                            <EditIcon className="w-6 h-6" />
+                                            <EditIcon className="w-8 h-8" />
                                         </button>
                                         <button
                                             onClick={() => {
@@ -104,7 +104,7 @@ const GeneratorView: React.FC<GeneratorViewProps> = ({
                                             data-tooltip-content={t('download')}
                                             className="p-3 bg-white/10 text-gray-200 rounded-full transition-colors hover:bg-theme-accent-hover"
                                         >
-                                            <DownloadIcon className="w-6 h-6" />
+                                            <DownloadIcon className="w-8 h-8" />
                                         </button>
                                     </div>
                                 </div>

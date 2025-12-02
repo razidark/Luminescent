@@ -7,7 +7,6 @@ import React, { memo, useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import Spinner from './Spinner';
 import VideoPanel from './VideoPanel';
-// FIX: Imported the missing `DownloadIcon` and `SaveIcon` to resolve module export errors.
 import { VideoIcon, DownloadIcon, SaveIcon } from './icons';
 
 interface VideoViewProps {
@@ -97,7 +96,7 @@ const VideoView: React.FC<VideoViewProps> = ({
                                     data-tooltip-content={isSaved ? t('gallerySaved') : t('gallerySave')}
                                     className={`p-3 bg-white/10 text-gray-200 rounded-full transition-all duration-200 backdrop-blur-sm ${isSaved ? 'bg-green-500/50 cursor-default' : 'hover:bg-theme-accent-hover'}`}
                                 >
-                                    <SaveIcon className="w-6 h-6" />
+                                    <SaveIcon className="w-8 h-8" />
                                 </button>
                                 <button
                                     onClick={async () => {
@@ -111,7 +110,7 @@ const VideoView: React.FC<VideoViewProps> = ({
                                     data-tooltip-content={t('downloadVideo')}
                                     className="p-3 bg-white/10 text-gray-200 rounded-full transition-colors hover:bg-theme-accent-hover backdrop-blur-sm"
                                 >
-                                    <DownloadIcon className="w-6 h-6" />
+                                    <DownloadIcon className="w-8 h-8" />
                                 </button>
                             </div>
                         </div>
