@@ -27,25 +27,13 @@
 
 ## 🏗 Architecture
 
-### Frontend
+For a detailed technical breakdown of the system design, state management, and AI service layer, please refer to [ARCHITECTURE.md](./ARCHITECTURE.md).
+
+### Quick Stats
 *   **Framework**: React 19 with TypeScript.
 *   **Build Tool**: Vite.
 *   **Styling**: Tailwind CSS with a custom theming engine (supports dynamic RGB rainbows, dark/light modes).
 *   **State Management**: React Context API (`EditorContext`, `HistoryContext`, `ThemeContext`).
-
-### AI Integration
-*   **SDK**: `@google/genai` (Google GenAI SDK).
-*   **Models Used**:
-    *   `gemini-3-pro-preview`: Complex reasoning, creative writing, and high-fidelity image generation/upscaling.
-    *   `gemini-2.5-flash`: Fast multimodal analysis, object detection, and lightweight text tasks.
-    *   `gemini-2.5-flash-image`: Standard image generation and fast editing/inpainting.
-    *   `veo-3.1-fast-generate-preview`: Video generation.
-    *   `gemini-2.5-flash-native-audio-preview`: Real-time voice interaction (Live API).
-    *   `gemini-2.5-flash-preview-tts`: Text-to-speech generation.
-
-### Performance & Storage
-*   **Inlined Web Workers**: Heavy image processing tasks (compression, resizing, formatting, pixel manipulation) are handled by a Web Worker inlined within `utils/helpers.ts` to ensure stability across different hosting environments and keep the UI thread responsive.
-*   **IndexedDB**: Uses **IndexedDB** (`utils/db.ts`) to store large image blobs and editing history locally, bypassing browser LocalStorage limits.
 
 ## 🚀 Setup
 
@@ -78,6 +66,12 @@
 *   `hooks/`: Custom React hooks (`useLiveSession`, `useHistoryState`).
 *   `utils/`: Database helpers and image processing logic.
 *   `i18n/`: Localization files.
+
+## ❓ Troubleshooting
+
+*   **Error 403 (Permission Denied)**: This usually means your API key does not have access to the specific model (e.g., Veo or Gemini 1.5 Pro). Ensure you are using a key from a Google Cloud Project with billing enabled.
+*   **"Local Storage Full"**: Luminescent uses IndexedDB for heavy assets, but if you see this error, try clearing your browser cache or using the "Reset History" button in settings.
+*   **Microphone Access Denied**: Ensure you have granted microphone permissions to the browser for the Gemini Live feature to work.
 
 ## 🤝 Contributing
 

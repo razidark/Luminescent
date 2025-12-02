@@ -10,7 +10,8 @@ import {
     VideoIcon, 
     GenerateIcon, 
     CodeBracketIcon, 
-    CpuIcon 
+    CpuIcon,
+    SparkleIcon 
 } from '../components/icons';
 
 export const wikiData = [
@@ -21,6 +22,15 @@ export const wikiData = [
         sections: [
             { titleKey: 'wikiIntroWelcome', contentKey: 'wikiIntroContent' },
             { titleKey: 'wikiIntroPhilosophy', contentKey: 'wikiIntroPhilosophyContent' }
+        ]
+    },
+    {
+        id: 'tips',
+        titleKey: 'wikiTipsTitle',
+        icon: SparkleIcon,
+        sections: [
+            { titleKey: 'wikiTipsPrompts', contentKey: 'wikiTipsPromptsContent' },
+            { titleKey: 'wikiTipsMasking', contentKey: 'wikiTipsMaskingContent' }
         ]
     },
     {

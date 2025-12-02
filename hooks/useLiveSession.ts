@@ -10,6 +10,10 @@ import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 // The SDK does not export LiveSession type, so we use any.
 type LiveSession = any;
 
+/**
+ * Hook to manage a Gemini Live session (Real-time Audio/Video).
+ * Handles microphone input (16kHz), audio output (24kHz PCM), and WebSocket connection.
+ */
 export const useLiveSession = () => {
     const [isConnected, setIsConnected] = React.useState(false);
     const [isSpeaking, setIsSpeaking] = React.useState(false);
@@ -24,14 +28,21 @@ export const useLiveSession = () => {
     const currentSessionPromiseRef = React.useRef<Promise<LiveSession> | null>(null);
     
     // Audio playback state
+    // nextStartTimeRef ensures audio chunks are scheduled sequentially without gaps.
     const nextStartTimeRef = React.useRef<number>(0);
     const audioSourcesRef = React.useRef<Set<AudioBufferSourceNode>>(new Set());
 
     // Helpers for encoding/decoding
+    
+    /**
+     * Encodes Float32 audio data from the microphone into 16-bit PCM base64 string.
+     * The model expects raw PCM 16-bit little-endian audio.
+     */
     const encodePCM = (data: Float32Array) => {
         const l = data.length;
         const int16 = new Int16Array(l);
         for (let i = 0; i < l; i++) {
+            // Convert float (-1.0 to 1.0) to int16 (-32768 to 32767)
             int16[i] = data[i] * 32768;
         }
         let binary = '';
@@ -43,6 +54,10 @@ export const useLiveSession = () => {
         return btoa(binary);
     };
 
+    /**
+     * Decodes base64 raw PCM 16-bit audio from the model into an AudioBuffer.
+     * The model typically returns 24kHz audio.
+     */
     const decodeAudioData = async (base64: string, ctx: AudioContext) => {
         const binaryString = atob(base64);
         const len = binaryString.length;
@@ -53,9 +68,11 @@ export const useLiveSession = () => {
         
         const dataInt16 = new Int16Array(bytes.buffer);
         const frameCount = dataInt16.length;
-        const buffer = ctx.createBuffer(1, frameCount, 24000); // Model output is usually 24kHz
+        // Create a buffer at 24kHz (standard for Gemini Live output)
+        const buffer = ctx.createBuffer(1, frameCount, 24000); 
         const channelData = buffer.getChannelData(0);
         for (let i = 0; i < frameCount; i++) {
+            // Convert int16 back to float (-1.0 to 1.0) for Web Audio API
             channelData[i] = dataInt16[i] / 32768.0;
         }
         return buffer;
@@ -67,10 +84,12 @@ export const useLiveSession = () => {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
             
             // Setup Audio Context for input (mic) and output (speaker)
+            // Note: We use 16kHz for the context to match the input requirement of the model primarily,
+            // though output can be resampled.
             const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-            const ctx = new AudioContextClass({ sampleRate: 16000 }); // Input needs 16kHz
+            const ctx = new AudioContextClass({ sampleRate: 16000 }); 
             
-            // Ensure context is running (critical for some browsers)
+            // Ensure context is running (critical for some browsers that suspend audio context on load)
             if (ctx.state === 'suspended') {
                 await ctx.resume();
             }
@@ -79,6 +98,7 @@ export const useLiveSession = () => {
             nextStartTimeRef.current = ctx.currentTime;
 
             // Get Microphone Stream
+            // We explicitly request 16kHz, mono, with processing enabled for better voice quality.
             const stream = await navigator.mediaDevices.getUserMedia({ audio: {
                 sampleRate: 16000,
                 channelCount: 1,
@@ -104,6 +124,7 @@ export const useLiveSession = () => {
                         setIsConnected(true);
                     },
                     onmessage: async (msg: LiveServerMessage) => {
+                        // Handle Audio Output from Model
                         const audioData = msg.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
                         if (audioData && audioContextRef.current) {
                             setIsSpeaking(true);
@@ -113,6 +134,7 @@ export const useLiveSession = () => {
                             source.buffer = buffer;
                             source.connect(audioContextRef.current.destination);
                             
+                            // Schedule playback to occur immediately after the previous chunk finishes
                             const now = audioContextRef.current.currentTime;
                             const startTime = Math.max(now, nextStartTimeRef.current);
                             source.start(startTime);
@@ -121,12 +143,15 @@ export const useLiveSession = () => {
                             audioSourcesRef.current.add(source);
                             source.onended = () => {
                                 audioSourcesRef.current.delete(source);
+                                // If no more sources are playing, model has stopped speaking
                                 if (audioSourcesRef.current.size === 0) setIsSpeaking(false);
                             };
                         }
                         
+                        // Handle Interruption
                         if (msg.serverContent?.interrupted) {
                             console.log("Model interrupted");
+                            // Stop all currently playing audio chunks immediately
                             audioSourcesRef.current.forEach(s => s.stop());
                             audioSourcesRef.current.clear();
                             nextStartTimeRef.current = 0;
@@ -150,6 +175,8 @@ export const useLiveSession = () => {
 
             // Setup Audio Processing for Input
             const source = ctx.createMediaStreamSource(stream);
+            // ScriptProcessor is deprecated but widely supported for raw PCM access needed here.
+            // Buffer size 4096 provides a good balance between latency and performance.
             const processor = ctx.createScriptProcessor(4096, 1, 1);
             
             processor.onaudioprocess = (e) => {
@@ -162,7 +189,7 @@ export const useLiveSession = () => {
 
                 const base64Data = encodePCM(inputData);
                 
-                // Send to model
+                // Send audio chunk to model via WebSocket
                 currentSessionPromiseRef.current?.then(session => {
                     session.sendRealtimeInput([{ mimeType: 'audio/pcm;rate=16000', data: base64Data }]);
                 });
@@ -182,14 +209,14 @@ export const useLiveSession = () => {
     }, []);
 
     const disconnect = React.useCallback(() => {
-        // Clean up Web Audio
+        // Clean up Web Audio resources
         processorRef.current?.disconnect();
         sourceRef.current?.disconnect();
         mediaStreamRef.current?.getTracks().forEach(track => track.stop());
         audioContextRef.current?.close();
 
-        // Close Session
-        sessionRef.current?.close(); // Although close() isn't explicitly on LiveSession type sometimes, we rely on closing connection
+        // Close Gemini Live Session
+        sessionRef.current?.close();
         
         // Reset Refs
         processorRef.current = null;
