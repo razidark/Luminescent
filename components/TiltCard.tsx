@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -8,10 +9,11 @@ import * as React from 'react';
 interface TiltCardProps {
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties; // Adicionado suporte a style
   onClick?: () => void;
 }
 
-const TiltCard: React.FC<TiltCardProps> = ({ children, className = '', onClick }) => {
+const TiltCard: React.FC<TiltCardProps> = ({ children, className = '', style, onClick }) => {
   const cardRef = React.useRef<HTMLDivElement>(null);
   const glareRef = React.useRef<HTMLDivElement>(null);
 
@@ -57,7 +59,7 @@ const TiltCard: React.FC<TiltCardProps> = ({ children, className = '', onClick }
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       onClick={onClick}
-      // Initial state styles handled in CSS/ClassName or defaults above
+      style={style} // Propriedade style agora é aplicada ao DOM
     >
       {children}
       {/* Glare Effect */}

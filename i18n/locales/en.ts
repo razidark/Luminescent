@@ -50,6 +50,14 @@ export default {
     "restoreDescription": "Automatically fix scratches, improve colors, and enhance clarity on old or damaged photos.",
     "productStudioDescription": "Create professional product photos. Remove backgrounds, add studio scenes, and apply realistic shadows.",
     "addProductDescription": "Paint on your photo and use a text prompt to add a new object seamlessly into the scene.",
+    /* Added missing enhanceDescription to resolve StartScreen.tsx and EnhancePanel.tsx errors */
+    "enhanceDescription": "Enhance image details and clarity using AI.",
+    /* Fixed styleTransferDescription language to resolve StartScreen.tsx and StyleTransferPanel.tsx errors */
+    "styleTransferDescription": "Apply the artistic style of one image to another for a unique creative blend.",
+    /* Variations description now properly defined */
+    "variationsDescription": "Generate creative variations of your photo. AI can reinterpret style, background and mood.",
+    /* Captions description for CaptionPanel.tsx and toolbar */
+    "captionsDescription": "Generate descriptive captions for your image, grounded with web search results.",
     "undo": "Undo (Ctrl+Z)",
     "redo": "Redo (Ctrl+Y)",
     "invertMask": "Invert Mask",
