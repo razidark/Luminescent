@@ -1,36 +1,33 @@
+# System Architecture
 
-# Architecture Overview
+Luminescent follows a "Thick Client, Thin Server" philosophy. Almost all heavy lifting happens inside the user's browser to maximize privacy and responsiveness.
 
-Luminescent is a client-side heavy application.
+## 🔄 Data Lifecycle
 
-## 🔐 API Key Security
+1. **Input**: Images are processed via `FileReader` and immediately compressed using a dedicated **Web Worker**.
+2. **Storage**: Compressed Blobs are stored in **IndexedDB**. This bypasses the 5MB limit of LocalStorage, allowing for massive editing sessions.
+3. **History**: The `useHistoryState` hook manages a pointer-based undo/redo stack. It serializes Blobs to IndexedDB after every successful AI operation.
+4. **AI Processing**: 
+   - **Flash Models**: Used for real-time vision, object detection, and quick edits.
+   - **Pro Models**: Used for complex reasoning (Meme captions, Cardify logic) and high-res image generation.
+   - **Live API**: Utilizes WebSockets for raw PCM audio streaming.
 
-Since this is a single-page application (SPA), environment variables injected via Vite (`process.env.API_KEY`) are technically accessible to the end-user via browser inspection.
+## 🧵 Multithreading (Web Workers)
 
-### Mitigation Strategies:
+To prevent the UI from freezing during pixel-intensive tasks (like cropping, text rendering, or format conversion), Luminescent uses an inlined Web Worker in `utils/helpers.ts`. 
 
-1.  **Domain Whitelisting (Referrer Restriction)**:
-    The primary security layer is restricting the API key to specific HTTP referrers in the Google Cloud Console. This ensures the key only works when requests originate from your hosted domain.
+The worker handles:
+- Canvas compositing.
+- Real-time image compression.
+- Format conversion (WEBP/PNG/JPEG).
+- Complex cropping logic.
 
-2.  **Quota Management**:
-    Usage limits are enforced at the API provider level (Google Cloud) rather than the application level to prevent budget overruns.
+## 🎨 Design System
 
-3.  **Advanced Model Protection**:
-    For high-cost models (like Veo or Pro Image), the app utilizes the `window.aistudio.openSelectKey()` interface when available, shifting the cost responsibility to the user if they have their own credentials.
+The UI uses a custom **Glassmorphism** engine implemented via Tailwind CSS. 
+- **Dynamic Theming**: CSS Variables are injected via `ThemeContext`.
+- **Rainbow Mode**: Uses `requestAnimationFrame` to cycle HSL values across the entire application interface, creating a unique "Luminescent" glow.
 
-## 🛠️ Tech Stack
+## 📡 API Interaction
 
-*   **Core**: React 19, TypeScript, Vite.
-*   **Storage**: IndexedDB for large image blobs.
-*   **Processing**: Inlined Web Worker for non-blocking image manipulation.
-
-## 🧩 Core Components
-
-### AI Service Layer (`geminiService.ts`)
-Handles communication with:
-- `gemini-2.5-flash-image`
-- `gemini-3-pro-image-preview`
-- `veo-3.1-fast-generate-preview`
-
-### History Engine (`useHistoryState.ts`)
-Manages the undo/redo stack and persists state to IndexedDB.
+The app uses the `@google/genai` SDK. It implements a **Retry-with-Backoff** strategy for transient network errors and includes a unique "Requested entity not found" handler that automatically prompts the user to select a valid API key via the AI Studio bridge.

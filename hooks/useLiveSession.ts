@@ -190,8 +190,11 @@ export const useLiveSession = () => {
                 const base64Data = encodePCM(inputData);
                 
                 // Send audio chunk to model via WebSocket
+                // FIX: Updated to wrap audio part in { media: { ... } } as required by the SDK.
                 currentSessionPromiseRef.current?.then(session => {
-                    session.sendRealtimeInput([{ mimeType: 'audio/pcm;rate=16000', data: base64Data }]);
+                    session.sendRealtimeInput({
+                        media: { mimeType: 'audio/pcm;rate=16000', data: base64Data }
+                    });
                 });
             };
 

@@ -1,4 +1,3 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -11,7 +10,9 @@ import {
     GenerateIcon, 
     CodeBracketIcon, 
     CpuIcon,
-    SparkleIcon 
+    SparkleIcon,
+    InfoIcon,
+    ChatIcon
 } from '../components/icons';
 
 export const wikiData = [
@@ -22,6 +23,24 @@ export const wikiData = [
         sections: [
             { titleKey: 'wikiIntroWelcome', contentKey: 'wikiIntroContent' },
             { titleKey: 'wikiIntroPhilosophy', contentKey: 'wikiIntroPhilosophyContent' }
+        ]
+    },
+    {
+        id: 'vision',
+        titleKey: 'inspectorTitle',
+        icon: InfoIcon,
+        sections: [
+            { titleKey: 'inspectorTitle', contentKey: 'inspectorAnalyzing' },
+            { titleKey: 'wikiTipsMasking', contentKey: 'wikiTipsMaskingContent' }
+        ]
+    },
+    {
+        id: 'live',
+        titleKey: 'voiceInput',
+        icon: ChatIcon,
+        sections: [
+            { titleKey: 'voiceInput', contentKey: 'wikiIntroWelcome' }, // Reusing keys for structure
+            { titleKey: 'wikiModelsGemini', contentKey: 'wikiModelsGeminiContent' }
         ]
     },
     {
@@ -41,16 +60,6 @@ export const wikiData = [
             { titleKey: 'wikiToolsEdit', contentKey: 'wikiToolsEditContent' },
             { titleKey: 'wikiToolsGen', contentKey: 'wikiToolsGenContent' },
             { titleKey: 'wikiToolsVideo', contentKey: 'wikiToolsVideoContent' }
-        ]
-    },
-    {
-        id: 'models',
-        titleKey: 'wikiModelsTitle',
-        icon: CpuIcon,
-        sections: [
-            { titleKey: 'wikiModelsGemini', contentKey: 'wikiModelsGeminiContent' },
-            { titleKey: 'wikiModelsImagen', contentKey: 'wikiModelsImagenContent' },
-            { titleKey: 'wikiModelsVeo', contentKey: 'wikiModelsVeoContent' }
         ]
     },
     {

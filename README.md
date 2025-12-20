@@ -1,38 +1,49 @@
+# 🌟 Luminescent
 
-# Luminescent
+**Luminescent** is a state-of-the-art, AI-native creative suite designed for the modern web. Built atop Google's most advanced Gemini models, it bridges the gap between professional photo editing and generative imagination.
 
-**Luminescent** is a next-generation, web-based creative suite powered by Google's Gemini and Imagen models.
+## 🚀 Key Features
 
-## ⚠️ Security Note (Hosting)
+### 🎨 Generative Studio
+- **Imagen 3 Integration**: Generate stunning visuals with "Standard" and "Pro" modes.
+- **AI Variations**: Reinterpret your photos with adjustable creativity levels.
+- **Sketch-to-Image**: Transform rough strokes into high-fidelity artwork.
+- **Generative Expand**: Seamlessly outpaint and extend your canvas using AI.
 
-When hosting this app on platforms like Vercel or Netlify using `process.env.API_KEY`, the key is bundled into the frontend. **To prevent unauthorized use and costs:**
+### 🔍 Vision Intelligence
+- **Deep Inspector**: Analyze composition, lighting, and artistic styles.
+- **Smart Select**: Pixel-perfect object detection and automatic masking.
+- **Live Assistant**: Real-time voice interaction with Gemini 2.5 Flash for creative brainstorming.
 
-1.  **Restrict your API Key**: Go to the [Google Cloud Console](https://console.cloud.google.com/apis/credentials), edit your API Key, and under "Application restrictions", choose **Websites**. Add your domain (e.g., `https://your-app.vercel.app/*`).
-2.  **Set Quotas**: Limit the number of requests per day in the Google Cloud/AI Studio console to avoid unexpected bills.
+### 🛠️ Professional Editing
+- **Non-Destructive History**: Infinite undo/redo with local persistence.
+- **Product Studio**: Instant background removal and realistic shadow generation.
+- **AI Restoration**: Fix scratches and enhance clarity on vintage photos.
 
-## 🌟 Features
+## 🏗️ Technology Stack
+- **Framework**: React 19 (Strict Mode)
+- **Styling**: Tailwind CSS with custom Glassmorphism & Rainbow themes.
+- **Storage**: IndexedDB for high-performance local binary storage (No data leaves your device).
+- **Processing**: Inlined Web Workers for multi-threaded image manipulation.
+- **AI Engine**: Google GenAI SDK (Gemini 3 Pro, 3 Flash, and Veo 3.1).
 
-### Generative AI Tools
-*   **Image Generation**: Create high-fidelity images. Supports **Standard** (Fast) and **Pro** (High-Res) modes.
-*   **Video Creation**: Generate videos from text prompts or animate static images using `veo-3.1`.
-*   **Variations**: Generate stylistic or compositional variations.
+## 🔐 Launch & Security (Vercel Ready)
 
-### AI Editing Suite
-*   **Magic Erase & Retouch**: Remove objects or enhance portraits.
-*   **Generative Expand**: Outpaint images to extend the canvas.
-*   **AI Inspector**: Get deep technical breakdowns of any image.
+Luminescent is designed to be deployed effortlessly on Vercel or Netlify.
 
-## 🏗 Architecture
+### ⚠️ Critical Security Step
+Since this is an SPA, your `API_KEY` is technically accessible in the client bundle. To prevent unauthorized use:
+1. **Restrict your API Key**: Go to [Google Cloud Console > Credentials](https://console.cloud.google.com/apis/credentials).
+2. **Referrer Restrictions**: Add your production domains (e.g., `https://your-app.vercel.app/*`).
+3. **Quotas**: Set a reasonable daily budget in the AI Studio console.
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for details.
+## 💻 Development
 
-### Quick Stats
-*   **Framework**: React 19 + Vite.
-*   **Styling**: Tailwind CSS.
-*   **AI SDK**: `@google/genai`.
+```bash
+npm install
+# Set API_KEY in your .env or environment variables
+npm run dev
+```
 
-## 🚀 Setup
-
-1.  `npm install`
-2.  Set `API_KEY` in your hosting environment variables.
-3.  `npm run dev`
+---
+Made with ❤️ by Raziel & Gemini.

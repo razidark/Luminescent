@@ -54,7 +54,6 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
   React.useEffect(() => {
     const handleType = () => {
       const fullText = words[currentWordIndex];
-      
       if (isDeleting) {
         setCurrentText(fullText.substring(0, currentText.length - 1));
         setTypingSpeed(50);
@@ -62,7 +61,6 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
         setCurrentText(fullText.substring(0, currentText.length + 1));
         setTypingSpeed(150);
       }
-
       if (!isDeleting && currentText === fullText) {
         setTimeout(() => setIsDeleting(true), 2000);
       } else if (isDeleting && currentText === '') {
@@ -70,7 +68,6 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
         setCurrentWordIndex((prev) => (prev + 1) % words.length);
       }
     };
-
     const timer = setTimeout(handleType, typingSpeed);
     return () => clearTimeout(timer);
   }, [currentText, isDeleting, currentWordIndex, words, typingSpeed]);
@@ -80,9 +77,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
           try {
               const recentItems = await getRecentCreations(5);
               setRecentCreations(recentItems.filter(c => c.type === 'image'));
-          } catch (e) {
-              console.error("Failed to load recent creations", e);
-          }
+          } catch (e) { console.error(e); }
       };
       loadRecents();
   }, []);
@@ -94,9 +89,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files && files[0]) {
-      onFileSelect(files[0], targetTab);
-    }
+    if (files && files[0]) onFileSelect(files[0], targetTab);
     if (e.target) e.target.value = '';
   };
   
@@ -178,6 +171,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
       onDragLeave={() => setIsDraggingOver(false)}
       onDrop={handleDrop}
     >
+      {/* Dynamic Background Elements */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
          {Array.from({ length: 15 }).map((_, i) => (
              <div 
@@ -200,11 +194,11 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
             <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 sm:text-6xl lg:text-7xl animate-scale-up">
                 {renderTitle()}
             </h1>
-            <p className="max-w-2xl mx-auto text-lg text-gray-600 dark:text-gray-400 md:text-xl font-medium leading-relaxed animate-fade-in" style={{ animationDelay: '200ms' }}>
+            <p className="max-w-2xl mx-auto text-lg text-gray-600 dark:text-gray-400 md:text-xl font-medium leading-relaxed" style={{ animationDelay: '200ms' }}>
                 {t('nextGenPhotoEditing')}
             </p>
 
-            <div className="pt-6 flex flex-wrap items-center justify-center gap-4 animate-fade-in" style={{ animationDelay: '400ms' }}>
+            <div className="pt-6 flex flex-wrap items-center justify-center gap-4">
                 <button onClick={onGenerateClick} className="px-8 py-4 text-lg font-bold text-white bg-theme-gradient rounded-2xl shadow-xl shadow-theme-accent/20 hover:shadow-theme-accent/40 hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
                     <GenerateIcon className="w-6 h-6" /> {t('createAnImage')}
                 </button>
@@ -222,7 +216,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
         </header>
 
         {recentCreations.length > 0 && (
-            <section className="w-full max-w-5xl animate-fade-in" style={{ animationDelay: '600ms' }}>
+            <section className="w-full max-w-5xl">
                 <div className="flex items-center gap-3 mb-6 px-2">
                     <div className="p-2 bg-theme-accent/10 rounded-lg">
                         <ClockIcon className="w-5 h-5 text-theme-accent" />
@@ -235,7 +229,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
                             key={creation.id}
                             onClick={() => handleRecentClick(creation)}
                             className="aspect-square rounded-2xl overflow-hidden cursor-pointer group border border-gray-200 dark:border-white/10 hover:border-theme-accent transition-all bg-white dark:bg-black/20 p-2 animate-fade-in"
-                            style={{ animationDelay: `${700 + idx * 50}ms`, opacity: 0, animationFillMode: 'forwards' }}
+                            style={{ animationDelay: `${idx * 50}ms` }}
                         >
                             <div className="w-full h-full rounded-xl overflow-hidden relative">
                                 <img 
@@ -248,7 +242,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
                             </div>
                         </TiltCard>
                     ))}
-                    <button onClick={onGalleryClick} className="aspect-square rounded-2xl border-2 border-dashed border-gray-300 dark:border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/40 dark:hover:bg-white/5 transition-colors text-gray-500 hover:text-theme-accent animate-fade-in" style={{ animationDelay: `${700 + recentCreations.length * 50}ms`, opacity: 0, animationFillMode: 'forwards' }}>
+                    <button onClick={onGalleryClick} className="aspect-square rounded-2xl border-2 border-dashed border-gray-300 dark:border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/40 dark:hover:bg-white/5 transition-colors text-gray-500 hover:text-theme-accent">
                         <GalleryIcon className="w-8 h-8" />
                         <span className="text-sm font-bold">{t('myCreations')}</span>
                     </button>
@@ -257,7 +251,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
         )}
 
         <section className="w-full max-w-7xl space-y-12">
-            <div className="flex items-center justify-center gap-4 animate-fade-in" style={{ animationDelay: '900ms' }}>
+            <div className="flex items-center justify-center gap-4">
                 <div className="h-px flex-grow bg-gray-300 dark:bg-gray-800"></div>
                 <h2 className="text-2xl font-black uppercase tracking-widest text-gray-400 dark:text-gray-600">{t('startWithTool')}</h2>
                 <div className="h-px flex-grow bg-gray-300 dark:bg-gray-800"></div>
@@ -266,7 +260,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {categories.map((cat, catIdx) => (
                     <div key={catIdx} className="space-y-4">
-                        <h4 className="text-sm font-black uppercase tracking-[0.2em] text-theme-accent ml-2 flex items-center gap-2 animate-fade-in" style={{ animationDelay: `${1000 + catIdx * 100}ms`, opacity: 0, animationFillMode: 'forwards' }}>
+                        <h4 className="text-sm font-black uppercase tracking-[0.2em] text-theme-accent ml-2 flex items-center gap-2">
                              <div className="w-2 h-2 rounded-full bg-theme-accent animate-pulse"></div>
                              {t(cat.titleKey as any)}
                         </h4>
@@ -276,7 +270,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
                                     key={item.id}
                                     onClick={() => handleTriggerFileUpload(item.id)}
                                     className="group glass border border-white/20 dark:border-white/5 p-5 rounded-2xl flex flex-col gap-3 cursor-pointer hover:bg-white/60 dark:hover:bg-white/10 transition-all shadow-sm animate-fade-in-slide"
-                                    style={{ animationDelay: `${1100 + catIdx * 100 + itemIdx * 50}ms`, opacity: 0, animationFillMode: 'forwards' }}
+                                    style={{ animationDelay: `${(catIdx * 2 + itemIdx) * 50}ms` }}
                                 >
                                     <div className="flex items-start justify-between">
                                         <div className="p-3 bg-gray-100 dark:bg-white/10 rounded-xl transition-all group-hover:bg-theme-accent group-hover:text-white group-hover:scale-110 shadow-inner">
