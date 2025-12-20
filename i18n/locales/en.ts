@@ -50,13 +50,9 @@ export default {
     "restoreDescription": "Automatically fix scratches, improve colors, and enhance clarity on old or damaged photos.",
     "productStudioDescription": "Create professional product photos. Remove backgrounds, add studio scenes, and apply realistic shadows.",
     "addProductDescription": "Paint on your photo and use a text prompt to add a new object seamlessly into the scene.",
-    /* Added missing enhanceDescription to resolve StartScreen.tsx and EnhancePanel.tsx errors */
     "enhanceDescription": "Enhance image details and clarity using AI.",
-    /* Fixed styleTransferDescription language to resolve StartScreen.tsx and StyleTransferPanel.tsx errors */
     "styleTransferDescription": "Apply the artistic style of one image to another for a unique creative blend.",
-    /* Variations description now properly defined */
     "variationsDescription": "Generate creative variations of your photo. AI can reinterpret style, background and mood.",
-    /* Captions description for CaptionPanel.tsx and toolbar */
     "captionsDescription": "Generate descriptive captions for your image, grounded with web search results.",
     "undo": "Undo (Ctrl+Z)",
     "redo": "Redo (Ctrl+Y)",
@@ -256,7 +252,6 @@ export default {
     "restoreFace": "Enhance Facial Details",
     "applyRestoration": "Apply Restoration",
     "memeTitle": "AI Meme Creator",
-    "memeDescription": "Generate caption ideas or write your own. The classic meme format will be applied automatically.",
     "generateIdeas": "Generate Ideas",
     "generateMoreIdeas": "Generate More Ideas",
     "memeTopText": "Top Text",
@@ -558,7 +553,7 @@ export default {
     "deselectAll": "Deselect All",
     "copyCode": "Copy Code",
     "sourceLink": "Visit Source",
-    "mapLink": "View on Map",
+    "mapLink": "Visit Map",
     "sketchTitle": "Sketch to Image",
     "sketchDescription": "Turn your rough sketches into polished artwork using AI.",
     "sketchPlaceholder": "Describe what you sketched (e.g. 'a futuristic city', 'a cat sitting on a wall').",
@@ -570,7 +565,6 @@ export default {
     "focusStrongDesc": "Strong, dramatic bokeh.",
     "applyFocus": "Apply Focus",
     "actionFocus": "AI Focus",
-    "toolMerge": "AI Merge",
     "mergeTitle": "AI Image Merge",
     "mergeDescription": "Blend characters, styles, or content from two images together.",
     "mergeUpload": "Upload Merge Image",

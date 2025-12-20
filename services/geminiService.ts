@@ -34,29 +34,18 @@ const safetySettings = [
     },
 ];
 
-/**
- * Obtém a chave de API de forma dinâmica.
- * Prioriza chaves injetadas pelo bridge do AI Studio ou variáveis de ambiente.
- */
 const getAiKey = (): string => {
     const key = process.env.API_KEY;
-    // Verifica se a chave é válida e não é um placeholder de build ("undefined" ou "null")
     if (key && key !== "undefined" && key !== "null" && key.length > 5) {
         return key;
     }
-    
-    // Fallback para o objeto window caso o define do Vite tenha falhado
     const windowKey = (window as any).process?.env?.API_KEY;
     if (windowKey && windowKey !== "undefined" && windowKey !== "null") {
         return windowKey;
     }
-
     return "";
 };
 
-/**
- * Crucial: Sempre cria uma nova instância do cliente com a chave mais atual.
- */
 const getAiClient = () => {
     const apiKey = getAiKey();
     if (!apiKey) {
@@ -65,9 +54,6 @@ const getAiClient = () => {
     return new GoogleGenAI({ apiKey });
 };
 
-/**
- * Converts a File object to a Generative AI Part object containing base64 data.
- */
 const fileToGenerativePart = async (file: File): Promise<Part> => {
     const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -84,9 +70,6 @@ const fileToGenerativePart = async (file: File): Promise<Part> => {
     return { inlineData: { mimeType: mimeMatch[1], data: arr[1] } };
 };
 
-/**
- * Parses the Gemini API response to extract the generated image data URL.
- */
 const handleApiResponse = (response: GenerateContentResponse, context: string): string => {
     if (response.candidates?.[0]?.finishReason === 'SAFETY') {
         throw new Error(`A solicitação foi bloqueada pelos filtros de segurança da IA. Tente um prompt diferente.`);
@@ -104,9 +87,6 @@ const handleApiResponse = (response: GenerateContentResponse, context: string): 
     throw new Error(`Nenhuma imagem retornada para ${context}.`);
 };
 
-/**
- * Executa uma operação assíncrona com lógica de retry e tratamento específico para troca de chaves.
- */
 async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
     try {
         return await fn();
@@ -126,8 +106,6 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Pr
         throw error;
     }
 }
-
-// --- Funções do Serviço ---
 
 export const enhancePrompt = async (originalPrompt: string): Promise<string> => {
     return withRetry(async () => {
@@ -207,8 +185,6 @@ export const generateVideo = async (prompt: string, image?: File): Promise<strin
         return operation.response?.generatedVideos?.[0]?.video?.uri || '';
     });
 };
-
-// --- Ferramentas de Edição ---
 
 export const generateInpaintedImage = async (image: File, mask: File, prompt: string) => {
     return _generateImageEdit(image, `Preencha a área mascarada: ${prompt}`, 'inpainting', mask);
@@ -543,7 +519,7 @@ export const inspectImage = async (image: File): Promise<any> => {
             contents: {
                 parts: [
                     imagePart, 
-                    { text: "Inspecione profundamente esta imagem. Identifique os principais objetos, as cores dominantes, o estilo artístico, a composição e iluminação. Além disso, forneça 3 sugestões de estilos criativos para transformar esta imagem. Retorne um objeto JSON." }
+                    { text: "Inspecione profundamente esta imagem. Identifique os principais objetos visíveis, o esquema de cores dominante (5 cores hex), o estilo artístico, a composição técnica e o tipo de iluminação. Além disso, forneça 3 sugestões criativas de estilos de edição para transformar esta imagem. Responda estritamente em JSON." }
                 ]
             },
             config: {
@@ -551,13 +527,13 @@ export const inspectImage = async (image: File): Promise<any> => {
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
-                        subject: { type: Type.STRING },
-                        style: { type: Type.STRING },
-                        composition: { type: Type.STRING },
-                        lighting: { type: Type.STRING },
-                        colors: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        prompt: { type: Type.STRING },
-                        detectedObjects: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        subject: { type: Type.STRING, description: "A summary of the main subject of the image." },
+                        style: { type: Type.STRING, description: "Description of the artistic style (e.g., realistic, painterly, minimalist)." },
+                        composition: { type: Type.STRING, description: "Technical composition details (e.g., rule of thirds, symmetry)." },
+                        lighting: { type: Type.STRING, description: "The type of lighting (e.g., natural, soft, high-contrast)." },
+                        colors: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of 5 dominant hex colors." },
+                        prompt: { type: Type.STRING, description: "A master prompt to recreate this image from scratch." },
+                        detectedObjects: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of main objects detected." },
                         styleSuggestions: { 
                             type: Type.ARRAY, 
                             items: { 
@@ -566,7 +542,8 @@ export const inspectImage = async (image: File): Promise<any> => {
                                     title: { type: Type.STRING }, 
                                     description: { type: Type.STRING } 
                                 } 
-                            } 
+                            },
+                            description: "3 creative style suggestions for editing."
                         }
                     }
                 }
@@ -575,8 +552,6 @@ export const inspectImage = async (image: File): Promise<any> => {
         return JSON.parse(response.text || "{}");
     });
 };
-
-// --- Chat & Analysis ---
 
 export async function* chatWithGeminiStream(
     history: { role: string, text: string }[], 
