@@ -77,7 +77,6 @@ const EditorView: React.FC<EditorViewProps> = ({
     const { t } = useLanguage();
     const editor = useEditor();
     
-    // Canvas & Tool State
     const [brushSize, setBrushSize] = React.useState(30);
     const [brushColor, setBrushColor] = React.useState('rgba(255, 0, 0, 0.5)');
     const [drawTool, setDrawTool] = React.useState<'brush' | 'eraser'>('brush');
@@ -91,7 +90,6 @@ const EditorView: React.FC<EditorViewProps> = ({
     const [isPanMode, setIsPanMode] = React.useState(false);
     const [isInspectorOpen, setIsInspectorOpen] = React.useState(false);
     
-    // Refs
     const zoomPanRef = React.useRef<ZoomPanRef>(null);
     const drawingCanvasRef = React.useRef<DrawingCanvasRef>(null);
     const imageRef = React.useRef<HTMLImageElement>(null);
@@ -100,30 +98,26 @@ const EditorView: React.FC<EditorViewProps> = ({
     const currentImageUrl = currentItem?.thumbnailUrl;
     const originalImageUrl = history[0]?.thumbnailUrl;
 
-    // Clear canvas when history changes (Undo/Redo) to prevent ghost masks
     React.useEffect(() => {
         drawingCanvasRef.current?.clear();
     }, [historyIndex]);
 
-    // Reset crop and drawing when tab changes
     React.useEffect(() => {
         drawingCanvasRef.current?.clear();
         setCrop(undefined);
         setCompletedCrop(undefined);
         setDrawTool('brush');
-        setIsPanMode(false); // Reset pan mode on tool change
+        setIsPanMode(false);
         
-        // Set default brush settings based on tab
         if (activeTab === 'sketch') {
             setBrushColor(sketchColor);
             setBrushSize(5);
         } else {
-            setBrushColor('rgba(255, 0, 0, 0.5)'); // Red mask
+            setBrushColor('rgba(255, 0, 0, 0.5)');
             setBrushSize(30);
         }
     }, [activeTab, sketchColor]);
 
-    // Update brush color when sketch color changes
     React.useEffect(() => {
         if (activeTab === 'sketch') {
             setBrushColor(sketchColor);
@@ -341,8 +335,7 @@ const EditorView: React.FC<EditorViewProps> = ({
     };
 
     return (
-        <div className="flex flex-col md:flex-row h-full w-full gap-4 lg:gap-6 items-stretch">
-            {/* Main Canvas Area */}
+        <div className="flex flex-col md:flex-row h-full w-full gap-4 lg:gap-6 items-stretch animate-fade-in">
             <div className="flex-grow relative bg-gray-100 dark:bg-black/20 rounded-3xl overflow-hidden shadow-inner border border-white/20 dark:border-white/10 checkerboard-bg group min-h-[50vh]">
                 {currentImageUrl && (
                     <ZoomPanWrapper
@@ -365,7 +358,7 @@ const EditorView: React.FC<EditorViewProps> = ({
                                         src={currentImageUrl} 
                                         alt="Editing" 
                                         className="max-h-[80vh] max-w-full object-contain block select-none pointer-events-none" 
-                                        style={{ transformOrigin: 'top left' }} // Ensure transforms apply correctly
+                                        style={{ transformOrigin: 'top left' }}
                                     />
                                 </ReactCrop>
                             ) : (
@@ -378,7 +371,6 @@ const EditorView: React.FC<EditorViewProps> = ({
                                 />
                             )}
 
-                            {/* Drawing Layer for Erase/Retouch/Sketch/AddProduct - disabled pointer events if panning */}
                             {['erase', 'retouch', 'add-product', 'sketch'].includes(activeTab || '') && imageRef.current && (
                                 <div className={`absolute inset-0 z-10 ${isPanMode ? 'pointer-events-none' : ''}`}>
                                     <DrawingCanvas 
@@ -392,7 +384,6 @@ const EditorView: React.FC<EditorViewProps> = ({
                                 </div>
                             )}
 
-                            {/* Compare Slider Overlay */}
                             {isCompareVisible && originalImageUrl && activeTab !== 'crop' && (
                                 <div className="absolute inset-0 z-20 pointer-events-auto">
                                     <CompareSlider 
@@ -405,70 +396,58 @@ const EditorView: React.FC<EditorViewProps> = ({
                     </ZoomPanWrapper>
                 )}
 
-                {/* Floating Controls */}
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 p-2 bg-white/80 dark:bg-black/60 backdrop-blur-md rounded-2xl shadow-lg border border-white/20 z-30 transition-opacity duration-300 opacity-0 group-hover:opacity-100">
-                    <button onClick={handleUndo} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors" data-tooltip-id="app-tooltip" data-tooltip-content={t('undo')}>
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 p-2 bg-white/80 dark:bg-black/60 backdrop-blur-md rounded-2xl shadow-lg border border-white/20 z-30 transition-all duration-500 opacity-0 group-hover:opacity-100 group-hover:translate-y-0 translate-y-4">
+                    <button onClick={handleUndo} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors active:scale-90" data-tooltip-id="app-tooltip" data-tooltip-content={t('undo')}>
                         <UndoIcon className="w-6 h-6" />
                     </button>
-                    <button onClick={handleRedo} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors" data-tooltip-id="app-tooltip" data-tooltip-content={t('redo')}>
+                    <button onClick={handleRedo} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors active:scale-90" data-tooltip-id="app-tooltip" data-tooltip-content={t('redo')}>
                         <RedoIcon className="w-6 h-6" />
                     </button>
                     <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
                     <button 
                         onClick={() => setIsPanMode(!isPanMode)} 
-                        className={`p-2 rounded-full transition-colors ${isPanMode ? 'bg-theme-accent text-white' : 'hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200'}`}
+                        className={`p-2 rounded-full transition-colors active:scale-90 ${isPanMode ? 'bg-theme-accent text-white' : 'hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200'}`}
                         data-tooltip-id="app-tooltip" 
                         data-tooltip-content={t('shortcutsPan')}
                     >
                         <HandIcon className="w-6 h-6" />
                     </button>
-                    <button onClick={() => zoomPanRef.current?.zoomOut()} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors" data-tooltip-id="app-tooltip" data-tooltip-content={t('zoomOut')}>
+                    <button onClick={() => zoomPanRef.current?.zoomOut()} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors active:scale-90" data-tooltip-id="app-tooltip" data-tooltip-content={t('zoomOut')}>
                         <ZoomOutIcon className="w-6 h-6" />
                     </button>
-                    <button onClick={() => zoomPanRef.current?.reset()} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors" data-tooltip-id="app-tooltip" data-tooltip-content={t('fitToScreen')}>
+                    <button onClick={() => zoomPanRef.current?.reset()} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors active:scale-90" data-tooltip-id="app-tooltip" data-tooltip-content={t('fitToScreen')}>
                         <FitToScreenIcon className="w-6 h-6" />
                     </button>
-                    <button onClick={() => zoomPanRef.current?.zoomIn()} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors" data-tooltip-id="app-tooltip" data-tooltip-content={t('zoomIn')}>
+                    <button onClick={() => zoomPanRef.current?.zoomIn()} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors active:scale-90" data-tooltip-id="app-tooltip" data-tooltip-content={t('zoomIn')}>
                         <ZoomInIcon className="w-6 h-6" />
                     </button>
                     <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
-                    <button onClick={() => setIsCompareVisible(!isCompareVisible)} className={`p-2 rounded-full transition-colors ${isCompareVisible ? 'bg-theme-accent text-white' : 'hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200'}`} data-tooltip-id="app-tooltip" data-tooltip-content={t('compareWithOriginal')}>
+                    <button onClick={() => setIsCompareVisible(!isCompareVisible)} className={`p-2 rounded-full transition-colors active:scale-90 ${isCompareVisible ? 'bg-theme-accent text-white' : 'hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200'}`} data-tooltip-id="app-tooltip" data-tooltip-content={t('compareWithOriginal')}>
                         <EyeIcon className="w-6 h-6" />
                     </button>
-                    <button onClick={() => setIsInspectorOpen(true)} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors" data-tooltip-id="app-tooltip" data-tooltip-content={t('inspectorTitle')}>
+                    <button onClick={() => setIsInspectorOpen(true)} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors active:scale-90" data-tooltip-id="app-tooltip" data-tooltip-content={t('inspectorTitle')}>
                         <InfoIcon className="w-6 h-6" />
                     </button>
                 </div>
 
-                {/* Loading Overlay */}
                 {editor.isLoading && (
                     <div className="absolute inset-0 bg-black/60 z-50 flex flex-col items-center justify-center backdrop-blur-sm animate-fade-in">
                         <Spinner />
                         <p className="text-white mt-4 font-semibold text-lg drop-shadow-md animate-pulse">{editor.loadingMessage}</p>
                     </div>
                 )}
-                
-                {/* Error Toast */}
-                {editor.error && (
-                    <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-500 text-white px-6 py-3 rounded-xl shadow-xl flex items-center gap-3 animate-slide-down z-50 max-w-md">
-                        <span>{editor.error}</span>
-                        <button onClick={() => editor.setError(null)} className="hover:bg-red-600 p-1 rounded-full"><ResetIcon className="w-5 h-5" /></button>
-                    </div>
-                )}
             </div>
 
-            {/* Sidebar Panel */}
             {!isPanelCollapsed && (
-                <div className="w-full md:w-80 lg:w-96 flex-shrink-0 glass-panel flex flex-col overflow-hidden transition-all duration-300 h-2/5 md:h-auto">
+                <div className="w-full md:w-80 lg:w-96 flex-shrink-0 glass-panel flex flex-col overflow-hidden transition-all duration-500 h-2/5 md:h-auto animate-slide-in-right">
                     <div className="flex-1 overflow-y-auto custom-scrollbar relative">
-                        <div key={activeTab} className="h-full animate-fade-in-slide">
+                        <div key={activeTab} className="h-full animate-fade-in">
                              {renderPanel()}
                         </div>
                     </div>
                     
-                    {/* Bottom Actions */}
                     <div className="p-4 border-t border-gray-200/50 dark:border-white/10 bg-white/50 dark:bg-black/20 flex flex-col gap-2 backdrop-blur-md">
-                        <button onClick={handleReset} className="w-full py-3 rounded-xl font-semibold text-gray-600 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400 transition-colors text-sm flex items-center justify-center gap-2">
+                        <button onClick={handleReset} className="w-full py-3 rounded-xl font-semibold text-gray-600 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400 transition-all active:scale-95 text-sm flex items-center justify-center gap-2">
                             <ResetIcon className="w-5 h-5" /> {t('resetAllChanges')}
                         </button>
                         <div className="grid grid-cols-2 gap-2">
@@ -483,10 +462,10 @@ const EditorView: React.FC<EditorViewProps> = ({
                             <button 
                                 onClick={onSaveToCreations} 
                                 disabled={isSaving || isSavingToCreations || isSaved} 
-                                className={`py-3 font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50 disabled:transform-none ${
+                                className={`py-3 font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm active:scale-95 disabled:opacity-50 disabled:transform-none ${
                                     isSaved 
                                     ? 'bg-green-500 text-white shadow-green-500/30' 
-                                    : 'bg-theme-gradient text-white shadow-theme-accent/20 hover:shadow-xl hover:shadow-theme-accent/40 hover:-translate-y-0.5 active:scale-95'
+                                    : 'bg-theme-gradient text-white shadow-theme-accent/20 hover:shadow-xl hover:shadow-theme-accent/40 hover:scale-[1.02]'
                                 }`}
                             >
                                 {isSaving || isSavingToCreations ? (
@@ -512,7 +491,6 @@ const EditorView: React.FC<EditorViewProps> = ({
     );
 };
 
-// Internal helper for DrawingCanvas prop
 const handleDrawEnd = () => {};
 
 export default EditorView;

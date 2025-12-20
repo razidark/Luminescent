@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -25,7 +26,6 @@ interface ChatViewProps {
     onApplyPrompt?: (prompt: string) => void;
 }
 
-// --- Markdown Renderer Component ---
 const MarkdownRenderer: React.FC<{ text: string }> = React.memo(({ text }) => {
     const elements: React.ReactNode[] = [];
     const parts = text.split(/```(\w*)\n([\s\S]*?)```/g);
@@ -45,7 +45,7 @@ const MarkdownRenderer: React.FC<{ text: string }> = React.memo(({ text }) => {
                         const headers = rows[0];
                         const bodyRows = rows.slice(2);
                         elements.push(
-                            <div key={`table-${i}-${tpIdx}`} className="overflow-x-auto my-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                            <div key={`table-${i}-${tpIdx}`} className="overflow-x-auto my-4 rounded-lg border border-gray-200 dark:border-gray-700 animate-scale-up">
                                 <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                         <tr>{headers.map((h, hIdx) => (<th key={hIdx} scope="col" className="px-6 py-3">{h}</th>))}</tr>
@@ -106,7 +106,7 @@ const MarkdownRenderer: React.FC<{ text: string }> = React.memo(({ text }) => {
             const lang = parts[i - 1] || 'text';
             const code = part;
             elements.push(
-                <div key={`code-${i}`} className="my-4 rounded-lg overflow-hidden bg-gray-900 text-gray-100 shadow-md border border-gray-700">
+                <div key={`code-${i}`} className="my-4 rounded-lg overflow-hidden bg-gray-900 text-gray-100 shadow-md border border-gray-700 animate-scale-up">
                     <div className="flex justify-between items-center px-4 py-1 bg-gray-800 border-b border-gray-700 text-xs text-gray-400 uppercase font-semibold select-none">
                         <span>{lang}</span>
                         <button onClick={() => navigator.clipboard.writeText(code.trim())} className="hover:text-white transition-colors">Copy</button>
@@ -155,7 +155,6 @@ const ChatView: React.FC<ChatViewProps> = ({ onEditImage, onApplyPrompt }) => {
         if (file) { setAttachedFile(file); setPreviewUrl(URL.createObjectURL(file)); }
     };
 
-    // FIX: Defined handleDragOver and handleDragLeave to resolve TypeScript errors and support UI feedback during drag interactions.
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
         e.stopPropagation();
@@ -232,18 +231,17 @@ const ChatView: React.FC<ChatViewProps> = ({ onEditImage, onApplyPrompt }) => {
         } catch (e) { console.error(e); }
     };
 
-    // Detect if model text contains suggested generation prompts
     const extractSuggestedPrompts = (text: string): string[] => {
-        const matches = text.match(/"([^"]{10,})"/g); // Look for long quoted text
+        const matches = text.match(/"([^"]{10,})"/g);
         if (!matches) return [];
         return matches.map(m => m.slice(1, -1)).filter(m => m.length < 200 && m.length > 15);
     };
 
     return (
         <div className="flex flex-col w-full h-[calc(100vh-100px)] max-w-5xl mx-auto p-4 gap-4 animate-fade-in">
-            <div className="flex items-center justify-between bg-white/50 dark:bg-gray-900/50 p-4 rounded-2xl backdrop-blur-md border border-gray-200 dark:border-gray-700 shadow-sm">
+            <div className="flex items-center justify-between bg-white/50 dark:bg-gray-900/50 p-4 rounded-2xl backdrop-blur-md border border-gray-200 dark:border-gray-700 shadow-sm animate-fade-in">
                 <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${isVoiceMode ? 'bg-red-100 text-red-500 animate-pulse' : 'bg-blue-100 text-blue-500'}`}>
+                    <div className={`p-2 rounded-full transition-all duration-500 ${isVoiceMode ? 'bg-red-100 text-red-500 animate-pulse' : 'bg-blue-100 text-blue-500'}`}>
                         {isVoiceMode ? <MicrophoneOnIcon className="w-6 h-6" /> : <ChatIcon className="w-6 h-6" />}
                     </div>
                     <div>
@@ -255,15 +253,15 @@ const ChatView: React.FC<ChatViewProps> = ({ onEditImage, onApplyPrompt }) => {
                 <div className="flex items-center gap-2">
                     {!isVoiceMode && (
                         <>
-                            <button onClick={handleClearChat} className="p-2 text-gray-500 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors" data-tooltip-id="app-tooltip" data-tooltip-content={t('clearChat')}><TrashIcon className="w-5 h-5" /></button>
-                            <button onClick={() => setUseReasoning(!useReasoning)} className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all flex items-center gap-2 ${useReasoning ? 'bg-purple-500 text-white shadow-lg' : 'bg-gray-200 dark:bg-gray-800 text-gray-500'}`} data-tooltip-id="app-tooltip" data-tooltip-content={t('thinkingMode')}><SparkleIcon className="w-3 h-3" /> Thinking {useReasoning ? 'ON' : 'OFF'}</button>
+                            <button onClick={handleClearChat} className="p-2 text-gray-500 hover:text-red-500 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-colors active:scale-90" data-tooltip-id="app-tooltip" data-tooltip-content={t('clearChat')}><TrashIcon className="w-5 h-5" /></button>
+                            <button onClick={() => setUseReasoning(!useReasoning)} className={`px-3 py-1.5 text-xs font-bold rounded-full transition-all flex items-center gap-2 active:scale-95 ${useReasoning ? 'bg-purple-500 text-white shadow-lg' : 'bg-gray-200 dark:bg-gray-800 text-gray-500'}`} data-tooltip-id="app-tooltip" data-tooltip-content={t('thinkingMode')}><SparkleIcon className="w-3 h-3" /> Thinking {useReasoning ? 'ON' : 'OFF'}</button>
                         </>
                     )}
-                    <button onClick={toggleVoiceMode} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all ${isVoiceMode ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-theme-gradient text-white hover:shadow-lg'}`}>{isVoiceMode ? 'End Session' : 'Go Live'}</button>
+                    <button onClick={toggleVoiceMode} className={`px-4 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 ${isVoiceMode ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-theme-gradient text-white hover:shadow-lg'}`}>{isVoiceMode ? 'End Session' : 'Go Live'}</button>
                 </div>
             </div>
 
-            <div className={`flex-grow relative overflow-hidden rounded-3xl glass-panel border transition-all ${isDragOver ? 'border-theme-accent border-2' : 'border-white/20 dark:border-white/10'} shadow-2xl bg-white/40 dark:bg-black/40`}>
+            <div className={`flex-grow relative overflow-hidden rounded-3xl glass-panel border transition-all duration-500 ${isDragOver ? 'border-theme-accent border-2 scale-[1.01]' : 'border-white/20 dark:border-white/10'} shadow-2xl bg-white/40 dark:bg-black/40`}>
                 {isVoiceMode ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-8 p-8 text-center animate-fade-in">
                         <div className="flex gap-2 items-center justify-center h-40">
@@ -277,14 +275,14 @@ const ChatView: React.FC<ChatViewProps> = ({ onEditImage, onApplyPrompt }) => {
                     <div className="absolute inset-0 flex flex-col" onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
                         <div className="flex-grow overflow-y-auto p-6 space-y-6 custom-scrollbar">
                             {messages.map((msg) => (
-                                <div key={msg.id} className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'user' ? 'bg-theme-accent/10 border border-theme-accent text-theme-accent' : 'bg-theme-gradient text-white shadow-md'}`}>
+                                <div key={msg.id} className={`flex gap-4 animate-fade-in ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-transform duration-300 hover:scale-110 ${msg.role === 'user' ? 'bg-theme-accent/10 border border-theme-accent text-theme-accent' : 'bg-theme-gradient text-white shadow-md'}`}>
                                         {msg.role === 'user' ? <div className="w-2 h-2 bg-theme-accent rounded-full" /> : <RobotIcon className="w-5 h-5" />}
                                     </div>
                                     <div className={`max-w-[85%] space-y-2`}>
-                                        <div className={`p-4 rounded-2xl shadow-sm ${msg.role === 'user' ? 'bg-white/80 dark:bg-gray-800/80 rounded-tr-none border border-theme-accent/20' : 'bg-white/90 dark:bg-gray-900/90 rounded-tl-none border border-gray-200 dark:border-gray-700'}`}>
+                                        <div className={`p-4 rounded-2xl shadow-sm transition-all duration-300 hover:shadow-md ${msg.role === 'user' ? 'bg-white/80 dark:bg-gray-800/80 rounded-tr-none border border-theme-accent/20' : 'bg-white/90 dark:bg-gray-900/90 rounded-tl-none border border-gray-200 dark:border-gray-700'}`}>
                                             {msg.image && (
-                                                <div className="relative group mb-3 inline-block rounded-lg overflow-hidden">
+                                                <div className="relative group mb-3 inline-block rounded-lg overflow-hidden animate-scale-up">
                                                     <img src={msg.image} alt="Attachment" className="max-h-64 object-cover" />
                                                     {onEditImage && (
                                                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -294,55 +292,26 @@ const ChatView: React.FC<ChatViewProps> = ({ onEditImage, onApplyPrompt }) => {
                                                 </div>
                                             )}
                                             {msg.isThinking ? <div className="flex items-center gap-2 text-gray-500"><Spinner /> <span className="text-sm animate-pulse">Thinking...</span></div> : <div className="prose dark:prose-invert text-sm leading-relaxed break-words"><MarkdownRenderer text={msg.text} /></div>}
-                                            
-                                            {msg.role === 'model' && !msg.isThinking && extractSuggestedPrompts(msg.text).length > 0 && (
-                                                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
-                                                    <p className="text-[10px] font-black uppercase tracking-widest text-theme-accent">Quick Actions</p>
-                                                    {extractSuggestedPrompts(msg.text).map((prompt, pIdx) => (
-                                                        <button 
-                                                            key={pIdx} 
-                                                            onClick={() => onApplyPrompt?.(prompt)}
-                                                            className="w-full text-left px-4 py-2 bg-gray-50 dark:bg-black/20 hover:bg-theme-accent/10 rounded-xl border border-gray-100 dark:border-white/5 flex items-center gap-3 group transition-all"
-                                                        >
-                                                            <GenerateIcon className="w-4 h-4 text-theme-accent group-hover:scale-110 transition-transform" />
-                                                            <span className="text-xs font-bold text-gray-700 dark:text-gray-300 italic line-clamp-1">Apply "{prompt}"</span>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
                                         </div>
-                                        {msg.role === 'model' && !msg.isThinking && (
-                                            <div className="flex flex-col gap-2 pl-2">
-                                                <button onClick={() => handleTTS(msg.text)} className="w-fit p-1.5 text-gray-500 hover:text-theme-accent transition-colors"><SpeakerLoudIcon className="w-4 h-4" /></button>
-                                                {msg.grounding?.groundingChunks && (
-                                                    <div className="flex flex-wrap gap-2 mt-1">
-                                                        {msg.grounding.groundingChunks.map((chunk: any, idx: number) => (
-                                                            chunk.web?.uri ? <a key={idx} href={chunk.web.uri} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors border border-blue-200 dark:border-blue-800"><SparkleIcon className="w-3 h-3" /><span className="truncate max-w-[150px]">{chunk.web.title || "Source"}</span></a> : null
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
                             ))}
                             <div ref={messagesEndRef} />
                         </div>
-
-                        <div className="p-4 bg-white/60 dark:bg-black/60 border-t border-gray-200 dark:border-gray-700 backdrop-blur-md">
+                        <div className="p-4 bg-white/60 dark:bg-black/60 border-t border-gray-200 dark:border-gray-700 backdrop-blur-md animate-fade-in">
                             {previewUrl && (
-                                <div className="flex items-center gap-2 mb-2 p-2 bg-gray-100 dark:bg-white/5 rounded-lg w-fit border border-gray-200 dark:border-white/10">
+                                <div className="flex items-center gap-2 mb-2 p-2 bg-gray-100 dark:bg-white/5 rounded-lg w-fit border border-gray-200 dark:border-white/10 animate-scale-up">
                                     <img src={previewUrl} alt="Preview" className="w-8 h-8 rounded object-cover" />
                                     <span className="text-xs font-bold text-gray-500 uppercase">Attached</span>
-                                    <button onClick={() => { setAttachedFile(null); setPreviewUrl(null); }} className="text-red-500 ml-2 text-lg leading-none">&times;</button>
+                                    <button onClick={() => { setAttachedFile(null); setPreviewUrl(null); }} className="text-red-500 ml-2 text-lg leading-none active:scale-125 transition-transform">&times;</button>
                                 </div>
                             )}
                             <div className="flex items-end gap-2">
-                                <button onClick={() => fileInputRef.current?.click()} className="p-3 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-500 hover:text-theme-accent transition-all"><UploadIcon className="w-6 h-6" /></button>
+                                <button onClick={() => fileInputRef.current?.click()} className="p-3 rounded-xl bg-gray-100 dark:bg-white/10 text-gray-500 hover:text-theme-accent transition-all active:scale-90"><UploadIcon className="w-6 h-6" /></button>
                                 <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} accept="image/*,video/*,audio/*" />
                                 <div className="flex-grow relative">
-                                    <textarea value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }}} placeholder="Message Gemini..." className="w-full bg-gray-100 dark:bg-white/10 border-transparent focus:border-theme-accent focus:ring-0 rounded-xl p-3 pr-12 resize-none h-12 max-h-32 custom-scrollbar text-gray-800 dark:text-gray-100 shadow-inner" disabled={isLoading} />
-                                    <button onClick={() => handleSendMessage()} disabled={!inputValue.trim() && !attachedFile || isLoading} className="absolute right-2 bottom-2 p-1.5 bg-theme-gradient text-white rounded-lg transition-transform active:scale-90 disabled:opacity-50"><ChatIcon className="w-4 h-4" /></button>
+                                    <textarea value={inputValue} onChange={(e) => setInputValue(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); }}} placeholder="Message Gemini..." className="w-full bg-gray-100 dark:bg-white/10 border-transparent focus:border-theme-accent focus:ring-0 rounded-xl p-3 pr-12 resize-none h-12 max-h-32 custom-scrollbar text-gray-800 dark:text-gray-100 shadow-inner transition-all duration-300 focus:shadow-lg" disabled={isLoading} />
+                                    <button onClick={() => handleSendMessage()} disabled={!inputValue.trim() && !attachedFile || isLoading} className="absolute right-2 bottom-2 p-1.5 bg-theme-gradient text-white rounded-lg transition-all active:scale-90 disabled:opacity-50 hover:brightness-110"><ChatIcon className="w-4 h-4" /></button>
                                 </div>
                             </div>
                         </div>

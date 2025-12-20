@@ -1,4 +1,3 @@
-
 export default {
     "createEditEvolve": "Create. Edit. {evolveWord}.",
     "evolve": "Evolve",
@@ -85,6 +84,10 @@ export default {
     "toolEnhance": "Enhance",
     "toolSketch": "Sketch to Image",
     "toolFocus": "Focus",
+    "toolMerge": "AI Merge",
+    "toolStyleTransfer": "Style Transfer",
+    "toolCaptions": "Captions",
+    "toolVariations": "Variations",
     "adjustTitle": "Apply Professional Adjustments",
     "adjBrightness": "Brightness",
     "adjContrast": "Contrast",
@@ -426,10 +429,6 @@ export default {
     "galleryRemix": "Remix",
     "galleryDownload": "Download",
     "galleryViewPrompt": "View Prompt",
-    "toolStyleTransfer": "Style Transfer",
-    "styleTransferDescription": "Apply the artistic style of one image to another for a unique creative blend.",
-    "toolCaptions": "Captions",
-    "captionsDescription": "Generate descriptive captions for your image, grounded with web search results.",
     "loadingStyleTransfer": "Transferring artistic style...",
     "actionStyleTransfer": "Style Transfer",
     "captionsGenerating": "Generating captions...",
@@ -443,8 +442,6 @@ export default {
     "captionsSources": "Sources from Google Search",
     "captionsMore": "Generate More",
     "captionsGenerate": "Generate Captions",
-    "toolVariations": "Variations",
-    "variationsDescription": "Generate creative variations of your photo. The AI can reinterpret style, background, and mood.",
     "variationsPanelTitle": "Generate Image Variations",
     "variationsPanelDescription": "Create different versions of your image. Adjust the creativity level to control how much the AI changes the original.",
     "creativityLevel": "Creativity Level",
@@ -474,7 +471,7 @@ export default {
     "videoDurationShort": "Short",
     "videoDurationMedium": "Medium",
     "videoDurationLong": "Long",
-    "videoStyleCinematic": "Cinematic",
+    "videoStyleCinematic": "Cinematographic",
     "videoStyleRealistic": "Realistic",
     "videoStyleAnimated": "Animated",
     "videoStyleHyperlapse": "Hyperlapse",
@@ -487,7 +484,6 @@ export default {
     "strengthNormal": "Normal",
     "strengthStrong": "Strong",
     "enhanceTitle": "AI Enhance",
-    "enhanceDescription": "Automatically improve image quality, sharpen details, and adjust lighting.",
     "enhanceSubtleDesc": "Minor clarity and noise reduction.",
     "enhanceMediumDesc": "Balanced detail enhancement and lighting adjustment.",
     "enhanceStrongDesc": "Vibrant sharpness and high-definition details.",
@@ -634,4 +630,4 @@ export default {
     "changelogCardifyDesc": "Turn yourself into a trading card using advanced template generation.",
     "changelogFilterTitle": "Creative Filters",
     "changelogFilterDesc": "Added 20+ new artistic filters including Cyberpunk and Van Gogh styles."
-}
+};

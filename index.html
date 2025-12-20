@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -21,8 +22,10 @@
               'progress-image': 'progress-bar-animation-image 15s cubic-bezier(0.4, 1, 0.4, 1) forwards',
               'progress-video': 'progress-bar-animation-video 120s cubic-bezier(0.4, 1, 0.4, 1) forwards',
               'pulse-glow': 'pulse-glow 2.5s infinite cubic-bezier(0.4, 0, 0.6, 1)',
-              'fade-in': 'fade-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
-              'fade-in-slide': 'fade-in-slide 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
+              'fade-in': 'fade-in 0.4s cubic-bezier(0.23, 1, 0.32, 1) forwards',
+              'fade-in-slide': 'fade-in-slide 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+              'slide-in-right': 'slide-in-right 0.4s cubic-bezier(0.23, 1, 0.32, 1) forwards',
+              'scale-up': 'scale-up 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
               'float-up': 'float-up 10s linear infinite',
               'blink': 'blink 1s step-end infinite',
               'gradient-move': 'gradient-shift 4s ease infinite',
@@ -45,8 +48,16 @@
                 'to': { opacity: '1', transform: 'translateY(0)' }
               },
               'fade-in-slide': {
-                'from': { opacity: '0', transform: 'translateX(10px)' },
+                'from': { opacity: '0', transform: 'translateX(20px)' },
                 'to': { opacity: '1', transform: 'translateX(0)' }
+              },
+              'slide-in-right': {
+                'from': { transform: 'translateX(100%)', opacity: '0' },
+                'to': { transform: 'translateX(0)', opacity: '1' }
+              },
+              'scale-up': {
+                'from': { transform: 'scale(0.95)', opacity: '0' },
+                'to': { transform: 'scale(1)', opacity: '1' }
               },
               'float-up': {
                 '0%': { transform: 'translateY(0) scale(1)', opacity: '0' },
@@ -101,6 +112,7 @@
 }
 body {
     font-family: 'Sora', sans-serif;
+    overflow-x: hidden;
 }
 .dark body {
     background-color: #050505;
@@ -129,7 +141,6 @@ body {
     box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.6) !important;
 }
 
-/* Glassmorphism Utilities */
 .glass {
     background: rgba(255, 255, 255, 0.6);
     backdrop-filter: blur(24px) saturate(180%);
@@ -141,75 +152,23 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Manually expanded from @apply glass rounded-3xl shadow-2xl */
 .glass-panel {
-    /* Glass styles */
     background: rgba(255, 255, 255, 0.6);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.6);
-    
-    /* Rounded and Shadow styles */
-    border-radius: 1.5rem; /* rounded-3xl */
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); /* shadow-2xl */
+    border-radius: 1.5rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 
 .dark .glass-panel {
-    /* Dark glass override */
     background: rgba(15, 15, 20, 0.5);
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Range Input Styling */
-input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-  cursor: pointer;
-  width: 100%;
-}
-input[type="range"]:focus {
-  outline: none;
-}
-input[type="range"]::-webkit-slider-runnable-track {
-  background: #e5e7eb;
-  height: 0.375rem;
-  border-radius: 1rem;
-}
-.dark input[type="range"]::-webkit-slider-runnable-track {
-  background: #374151;
-}
-input[type="range"]::-moz-range-track {
-  background: #e5e7eb;
-  height: 0.375rem;
-  border-radius: 1rem;
-}
-.dark input[type="range"]::-moz-range-track {
-  background: #374151;
-}
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  margin-top: -5px;
-  background-color: #ffffff;
-  height: 1rem;
-  width: 1rem;
-  border-radius: 50%;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  border: 2px solid var(--theme-accent);
-  transition: transform 0.1s ease;
-}
-input[type="range"]:hover::-webkit-slider-thumb {
-    transform: scale(1.2);
-}
-input[type="range"]::-moz-range-thumb {
-  background-color: #ffffff;
-  height: 1rem;
-  width: 1rem;
-  border-radius: 50%;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  border: 2px solid var(--theme-accent);
-  transition: transform 0.1s ease;
+.animate-staggered-item {
+    opacity: 0;
+    animation: scale-up 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 /* Scrollbars */
@@ -228,343 +187,22 @@ input[type="range"]::-moz-range-thumb {
 }
 ::-webkit-scrollbar-thumb:hover {
   background-color: rgba(156, 163, 175, 0.6);
-  border: 1px solid transparent;
 }
 .dark ::-webkit-scrollbar-thumb {
   background-color: rgba(255, 255, 255, 0.15);
 }
-.dark ::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(255, 255, 255, 0.3);
-}
-
-
-@keyframes animated-gradient-text {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-@keyframes gradient-shift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-.animate-gradient-move {
-    background-size: 200% 200%;
-    animation: gradient-shift 4s ease infinite;
-}
-
-@keyframes rotate-border {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-.animated-border-box {
-  position: relative;
-  overflow: hidden;
-  z-index: 1;
-}
-.animated-border-box::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 250%;
-  height: 250%;
-  z-index: -1;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0%,
-    transparent 25%,
-    var(--theme-gradient-from),
-    var(--theme-gradient-to),
-    var(--theme-gradient-from),
-    transparent 75%,
-    transparent 100%
-  );
-  animation: rotate-border 8s linear infinite;
-  transform-origin: center center;
-  transform: translate(-50%, -50%);
-  opacity: 0.5;
-}
-
-.luminescent-border {
-  box-shadow: 0 0 15px color-mix(in srgb, var(--theme-accent) 20%, transparent);
-  border: 1px solid color-mix(in srgb, var(--theme-accent) 30%, transparent);
-  transition: box-shadow 0.3s ease, border-color 0.3s ease;
-}
-.luminescent-border:hover {
-  box-shadow: 0 0 25px color-mix(in srgb, var(--theme-accent) 30%, transparent);
-  border-color: color-mix(in srgb, var(--theme-accent) 50%, transparent);
-}
-
-.checkerboard-bg {
-    background-color: #f3f4f6;
-    background-image:
-        linear-gradient(45deg, #ffffff 25%, transparent 25%),
-        linear-gradient(-45deg, #ffffff 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, #ffffff 75%),
-        linear-gradient(-45deg, transparent 75%, #ffffff 75%);
-    background-size: 20px 20px;
-    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
-    /* Increase contrast slightly for semi-transparent usage */
-    background-color: #e5e7eb;
-}
-.dark .checkerboard-bg {
-    background-color: #0a0a0a;
-    background-image:
-        linear-gradient(45deg, rgba(255,255,255,0.05) 25%, transparent 25%),
-        linear-gradient(-45deg, rgba(255,255,255,0.05) 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.05) 75%),
-        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.05) 75%);
-    /* Increase contrast slightly for semi-transparent usage */
-    background-color: #1a1a1a;
-}
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.animate-fade-in {
-  animation: fade-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-}
-.feature-card {
-    opacity: 0;
-    transform: translateY(20px);
-    transition: opacity 0.6s cubic-bezier(0.215, 0.610, 0.355, 1.000), transform 0.6s cubic-bezier(0.215, 0.610, 0.355, 1.000);
-}
-.feature-card.is-visible {
-    opacity: 1;
-    transform: translateY(0);
-}
-.glow {
-  box-shadow: 0 0 20px 2px color-mix(in srgb, var(--theme-accent) 40%, transparent);
-}
-.bg-theme-gradient {
-  background-image: linear-gradient(135deg, var(--theme-gradient-from), var(--theme-gradient-to));
-}
-.text-theme-gradient {
-  background-image: linear-gradient(135deg, var(--theme-gradient-from), var(--theme-gradient-to));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-.bg-theme-accent { background-color: var(--theme-accent); }
-.bg-theme-accent-hover:hover { background-color: var(--theme-accent-hover); }
-.ring-theme-accent {
-    --tw-ring-color: var(--theme-accent);
-}
-.border-theme-accent { border-color: var(--theme-accent); }
-.accent-theme-accent { accent-color: var(--theme-accent); }
-.group-hover\\:bg-theme-accent\\/50:hover { background-color: color-mix(in srgb, var(--theme-accent) 50%, transparent); }
-.shadow-theme-accent\\/20 { --tw-shadow-color: color-mix(in srgb, var(--theme-accent) 20%, transparent); --tw-shadow: var(--tw-shadow-colored); }
-.hover\\:shadow-theme-accent\\/20:hover { --tw-shadow-color: color-mix(in srgb, var(--theme-accent) 20%, transparent); --tw-shadow: var(--tw-shadow-colored); }
-.hover\\:shadow-theme-accent\\/40:hover { --tw-shadow-color: color-mix(in srgb, var(--theme-accent) 40%, transparent); --tw-shadow: var(--tw-shadow-colored); }
-.via-theme-accent\\/30 { --tw-gradient-to: transparent; --tw-gradient-stops: var(--tw-gradient-from), color-mix(in srgb, var(--theme-accent) 30%, transparent), var(--tw-gradient-to); }
-@keyframes progress-bar-animation-image {
-  from { width: 0%; }
-  to { width: 95%; }
-}
-@keyframes progress-bar-animation-video {
-  from { width: 0%; }
-  to { width: 95%; }
-}
-.animate-progress-image {
-  animation: progress-bar-animation-image 15s cubic-bezier(0.4, 1, 0.4, 1) forwards;
-}
-.animate-progress-video {
-  animation: progress-bar-animation-video 120s cubic-bezier(0.4, 1, 0.4, 1) forwards;
-}
-@keyframes pulse-glow {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--theme-accent) 40%, transparent);
-  }
-  50% {
-    transform: scale(1.05);
-    box-shadow: 0 0 10px 5px color-mix(in srgb, var(--theme-accent) 20%, transparent);
-  }
-}
-.animate-pulse-glow {
-  animation: pulse-glow 2.5s infinite cubic-bezier(0.4, 0, 0.6, 1);
-}
-.eyedropper-preview {
-    position: fixed;
-    z-index: 1000;
-    pointer-events: none;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background-color: rgba(255, 255, 255, 0.9);
-    padding: 4px 8px;
-    border-radius: 6px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    border: 1px solid rgba(0,0,0,0.1);
-    backdrop-filter: blur(4px);
-}
-.dark .eyedropper-preview {
-    background-color: rgba(30, 30, 30, 0.9);
-    border: 1px solid rgba(255,255,255,0.1);
-}
-.eyedropper-color {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    border: 2px solid white;
-    box-shadow: 0 0 0 1px rgba(0,0,0,0.2);
-}
-.eyedropper-text {
-    font-family: 'Roboto Mono', monospace;
-    font-size: 14px;
-    font-weight: bold;
-    color: #1f2937;
-}
-.dark .eyedropper-text {
-    color: #f9fafb;
-}
-
-/* 3D Tilt Card Utilities */
-.preserve-3d {
-    transform-style: preserve-3d;
-    -webkit-transform-style: preserve-3d;
-}
-
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-.animate-blink {
-  animation: blink 1s step-end infinite;
-}
-.cursor-blink {
-    animation: blink 1s step-end infinite;
-}
-
-/* Particle Float Animation */
-@keyframes float-up {
-    0% {
-        transform: translateY(0) scale(1);
-        opacity: 0;
-    }
-    10% {
-        opacity: 0.6;
-    }
-    90% {
-        opacity: 0.4;
-    }
-    100% {
-        transform: translateY(-80vh) scale(0.5);
-        opacity: 0;
-    }
-}
-.animate-float-up {
-    animation-name: float-up;
-    animation-timing-function: linear;
-    animation-iteration-count: infinite;
-}
 </style>
-  <script>
-    // To prevent Flash Of Incorrect Theme (FOIT), this script must be in the <head>
-    if (localStorage.getItem('luminescenceMode') === 'dark' || (!('luminescenceMode' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-  </script>
   </head>
   <body class="bg-gray-100 dark:bg-[#0a0a0a]">
-    <!-- Define Global SVG Gradients here to avoid duplicate IDs in React components -->
     <svg width="0" height="0" style="position:absolute">
       <defs>
         <linearGradient id="duotone-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stop-color="var(--theme-gradient-from)" />
             <stop offset="100%" stop-color="var(--theme-gradient-to)" />
         </linearGradient>
-        <linearGradient id="duotone-gradient-alt" x1="0%" y1="100%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="var(--theme-gradient-from)" />
-            <stop offset="100%" stop-color="var(--theme-gradient-to)" />
-        </linearGradient>
       </defs>
     </svg>
-
-    <canvas id="gradient-canvas" class="fixed inset-0 -z-10 dark:hidden"></canvas>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
-    <script>
-      // Gradient background animation for light mode
-      const canvas = document.getElementById('gradient-canvas');
-      if (canvas && !document.documentElement.classList.contains('dark')) {
-        const ctx = canvas.getContext('2d');
-        let width, height, dpr;
-        let blobs = [];
-
-        const blobColors = [
-          { r: 233, g: 213, b: 255 }, // light purple
-          { r: 253, g: 230, b: 242 }, // light pink
-          { r: 224, g: 242, b: 254 }  // light blue
-        ];
-
-        class Blob {
-          constructor() {
-            this.x = Math.random() * width;
-            this.y = Math.random() * height;
-            this.radius = Math.random() * (Math.max(width, height) / 4) + (Math.max(width, height) / 6);
-            this.vx = (Math.random() - 0.5) * 0.5;
-            this.vy = (Math.random() - 0.5) * 0.5;
-            this.color = blobColors[Math.floor(Math.random() * blobColors.length)];
-          }
-
-          update() {
-            this.x += this.vx;
-            this.y += this.vy;
-
-            if (this.x - this.radius < 0) {
-              this.vx = Math.abs(this.vx); this.x = this.radius;
-            } else if (this.x + this.radius > width) {
-              this.vx = -Math.abs(this.vx); this.x = width - this.radius;
-            }
-            if (this.y - this.radius < 0) {
-              this.vy = Math.abs(this.vy); this.y = this.radius;
-            } else if (this.y + this.radius > height) {
-              this.vy = -Math.abs(this.vy); this.y = height - this.radius;
-            }
-          }
-        }
-
-        let animationFrameId;
-        function init() {
-          if (animationFrameId) cancelAnimationFrame(animationFrameId);
-          dpr = window.devicePixelRatio || 1;
-          width = canvas.width = window.innerWidth * dpr;
-          height = canvas.height = window.innerHeight * dpr;
-          canvas.style.width = `${window.innerWidth}px`;
-          canvas.style.height = `${window.innerHeight}px`;
-          blobs = Array(3).fill().map(() => new Blob());
-          animate();
-        }
-
-        function animate() {
-          ctx.clearRect(0, 0, width, height);
-          
-          const tempCanvas = document.createElement('canvas');
-          tempCanvas.width = width;
-          tempCanvas.height = height;
-          const tempCtx = tempCanvas.getContext('2d');
-          
-          tempCtx.filter = 'blur(80px)';
-          blobs.forEach(blob => {
-            blob.update();
-            tempCtx.fillStyle = `rgb(${blob.color.r}, ${blob.color.g}, ${blob.color.b})`;
-            tempCtx.beginPath();
-            tempCtx.arc(blob.x, blob.y, blob.radius, 0, Math.PI * 2);
-            tempCtx.fill();
-          });
-          
-          ctx.drawImage(tempCanvas, 0, 0);
-
-          animationFrameId = requestAnimationFrame(animate);
-        }
-
-        window.addEventListener('resize', init);
-        init();
-      }
-    </script>
   </body>
 </html>

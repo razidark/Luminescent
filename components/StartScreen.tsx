@@ -43,10 +43,8 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
   const [isDraggingOver, setIsDraggingOver] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [targetTab, setTargetTab] = React.useState<Tab>('erase');
-  const featuresRef = React.useRef<HTMLDivElement>(null);
   const [recentCreations, setRecentCreations] = React.useState<Creation[]>([]);
   
-  // Typewriter State
   const words = [t('evolve'), 'Imagine', 'Dream', 'Transform', 'Inspire'];
   const [currentWordIndex, setCurrentWordIndex] = React.useState(0);
   const [currentText, setCurrentText] = React.useState('');
@@ -180,7 +178,6 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
       onDragLeave={() => setIsDraggingOver(false)}
       onDrop={handleDrop}
     >
-      {/* Background Particles */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
          {Array.from({ length: 15 }).map((_, i) => (
              <div 
@@ -199,20 +196,19 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
       </div>
     
       <div className="flex flex-col items-center gap-10 animate-fade-in relative z-10 pb-20">
-        {/* Hero Section */}
         <header className="max-w-4xl w-full text-center space-y-6">
-            <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 sm:text-6xl lg:text-7xl">
+            <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 sm:text-6xl lg:text-7xl scale-up animate-fade-in">
                 {renderTitle()}
             </h1>
-            <p className="max-w-2xl mx-auto text-lg text-gray-600 dark:text-gray-400 md:text-xl font-medium leading-relaxed">
+            <p className="max-w-2xl mx-auto text-lg text-gray-600 dark:text-gray-400 md:text-xl font-medium leading-relaxed animate-fade-in" style={{ animationDelay: '200ms' }}>
                 {t('nextGenPhotoEditing')}
             </p>
 
-            <div className="pt-6 flex flex-wrap items-center justify-center gap-4">
-                <button onClick={onGenerateClick} className="px-8 py-4 text-lg font-bold text-white bg-theme-gradient rounded-2xl shadow-xl shadow-theme-accent/20 hover:shadow-theme-accent/40 hover:-translate-y-1 active:scale-95 transition-all flex items-center gap-3">
+            <div className="pt-6 flex flex-wrap items-center justify-center gap-4 animate-fade-in" style={{ animationDelay: '400ms' }}>
+                <button onClick={onGenerateClick} className="px-8 py-4 text-lg font-bold text-white bg-theme-gradient rounded-2xl shadow-xl shadow-theme-accent/20 hover:shadow-theme-accent/40 hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
                     <GenerateIcon className="w-6 h-6" /> {t('createAnImage')}
                 </button>
-                <button onClick={onVideoClick} className="px-8 py-4 text-lg font-bold text-white bg-theme-gradient rounded-2xl shadow-xl shadow-theme-accent/20 hover:shadow-theme-accent/40 hover:-translate-y-1 active:scale-95 transition-all flex items-center gap-3">
+                <button onClick={onVideoClick} className="px-8 py-4 text-lg font-bold text-white bg-theme-gradient rounded-2xl shadow-xl shadow-theme-accent/20 hover:shadow-theme-accent/40 hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
                     <VideoIcon className="w-6 h-6" /> {t('createAVideo')}
                 </button>
                 <button onClick={() => handleTriggerFileUpload('erase')} className="px-8 py-4 text-lg font-bold text-gray-800 dark:text-gray-200 bg-white dark:bg-white/10 rounded-2xl border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/20 active:scale-95 transition-all flex items-center gap-3">
@@ -225,9 +221,8 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
             </div>
         </header>
 
-        {/* Recent Section */}
         {recentCreations.length > 0 && (
-            <section className="w-full max-w-5xl animate-fade-in">
+            <section className="w-full max-w-5xl animate-fade-in" style={{ animationDelay: '600ms' }}>
                 <div className="flex items-center gap-3 mb-6 px-2">
                     <div className="p-2 bg-theme-accent/10 rounded-lg">
                         <ClockIcon className="w-5 h-5 text-theme-accent" />
@@ -235,11 +230,12 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
                     <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">{t('recentCreations')}</h3>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                    {recentCreations.map((creation) => (
+                    {recentCreations.map((creation, idx) => (
                         <TiltCard 
                             key={creation.id}
                             onClick={() => handleRecentClick(creation)}
-                            className="aspect-square rounded-2xl overflow-hidden cursor-pointer group border border-gray-200 dark:border-white/10 hover:border-theme-accent transition-all bg-white dark:bg-black/20 p-2"
+                            className="aspect-square rounded-2xl overflow-hidden cursor-pointer group border border-gray-200 dark:border-white/10 hover:border-theme-accent transition-all bg-white dark:bg-black/20 p-2 animate-staggered-item"
+                            style={{ animationDelay: `${700 + idx * 50}ms` }}
                         >
                             <div className="w-full h-full rounded-xl overflow-hidden relative">
                                 <img 
@@ -252,7 +248,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
                             </div>
                         </TiltCard>
                     ))}
-                    <button onClick={onGalleryClick} className="aspect-square rounded-2xl border-2 border-dashed border-gray-300 dark:border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/40 dark:hover:bg-white/5 transition-colors text-gray-500 hover:text-theme-accent">
+                    <button onClick={onGalleryClick} className="aspect-square rounded-2xl border-2 border-dashed border-gray-300 dark:border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/40 dark:hover:bg-white/5 transition-colors text-gray-500 hover:text-theme-accent animate-staggered-item" style={{ animationDelay: `${700 + recentCreations.length * 50}ms` }}>
                         <GalleryIcon className="w-8 h-8" />
                         <span className="text-sm font-bold">{t('myCreations')}</span>
                     </button>
@@ -260,33 +256,33 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
             </section>
         )}
 
-        {/* Tool Categories */}
         <section className="w-full max-w-7xl space-y-12">
-            <div className="flex items-center justify-center gap-4">
+            <div className="flex items-center justify-center gap-4 animate-fade-in" style={{ animationDelay: '900ms' }}>
                 <div className="h-px flex-grow bg-gray-300 dark:bg-gray-800"></div>
                 <h2 className="text-2xl font-black uppercase tracking-widest text-gray-400 dark:text-gray-600">{t('startWithTool')}</h2>
                 <div className="h-px flex-grow bg-gray-300 dark:bg-gray-800"></div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8" ref={featuresRef}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {categories.map((cat, catIdx) => (
                     <div key={catIdx} className="space-y-4">
-                        <h4 className="text-sm font-black uppercase tracking-[0.2em] text-theme-accent ml-2 flex items-center gap-2">
+                        <h4 className="text-sm font-black uppercase tracking-[0.2em] text-theme-accent ml-2 flex items-center gap-2 animate-fade-in" style={{ animationDelay: `${1000 + catIdx * 100}ms` }}>
                              <div className="w-2 h-2 rounded-full bg-theme-accent animate-pulse"></div>
                              {t(cat.titleKey as any)}
                         </h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {cat.items.map((item) => (
+                            {cat.items.map((item, itemIdx) => (
                                 <TiltCard 
                                     key={item.id}
                                     onClick={() => handleTriggerFileUpload(item.id)}
-                                    className="group glass border border-white/20 dark:border-white/5 p-5 rounded-2xl flex flex-col gap-3 cursor-pointer hover:bg-white/60 dark:hover:bg-white/10 transition-colors shadow-sm"
+                                    className="group glass border border-white/20 dark:border-white/5 p-5 rounded-2xl flex flex-col gap-3 cursor-pointer hover:bg-white/60 dark:hover:bg-white/10 transition-all shadow-sm animate-staggered-item"
+                                    style={{ animationDelay: `${1100 + catIdx * 100 + itemIdx * 50}ms` }}
                                 >
                                     <div className="flex items-start justify-between">
-                                        <div className="p-3 bg-gray-100 dark:bg-white/10 rounded-xl transition-all group-hover:bg-theme-accent group-hover:text-white shadow-inner">
+                                        <div className="p-3 bg-gray-100 dark:bg-white/10 rounded-xl transition-all group-hover:bg-theme-accent group-hover:text-white group-hover:scale-110 shadow-inner">
                                             {item.icon}
                                         </div>
-                                        <div className="p-2 opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0">
+                                        <div className="p-2 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
                                             <svg className="w-5 h-5 text-theme-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                                         </div>
                                     </div>

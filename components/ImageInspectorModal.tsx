@@ -70,7 +70,7 @@ const ImageInspectorModal: React.FC<ImageInspectorModalProps> = ({ isOpen, onClo
             {imageUrl && (
                 <img src={imageUrl} alt="Inspection Target" className="max-w-full max-h-full object-contain shadow-2xl rounded-lg" />
             )}
-            <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+            <div className="absolute top-4 left-4 bg-black/60 backdrop-md text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-2">
                 <SparkleIcon className="w-3 h-3 text-theme-accent" />
                 AI Analyzed
             </div>
@@ -88,7 +88,7 @@ const ImageInspectorModal: React.FC<ImageInspectorModalProps> = ({ isOpen, onClo
                 </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar text-white">
+            <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar text-white">
                 {loading ? (
                     <div className="flex flex-col items-center justify-center h-full gap-4">
                         <Spinner />
@@ -96,56 +96,80 @@ const ImageInspectorModal: React.FC<ImageInspectorModalProps> = ({ isOpen, onClo
                     </div>
                 ) : data ? (
                     <>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase tracking-wider text-white/50">{t('inspectorSubject')}</label>
-                            <p className="text-sm leading-relaxed text-white/90">{data.subject}</p>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold uppercase tracking-wider text-white/50">{t('inspectorStyle')}</label>
-                                <p className="text-sm font-medium">{data.style}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold uppercase tracking-wider text-white/50">{t('inspectorLighting')}</label>
-                                <p className="text-sm font-medium">{data.lighting}</p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold uppercase tracking-wider text-white/50">{t('inspectorComposition')}</label>
-                            <p className="text-sm text-white/80">{data.composition}</p>
-                        </div>
-
-                        {data.colors && (
+                        <section className="space-y-3">
+                            <label className="text-xs font-black uppercase tracking-[0.2em] text-theme-accent block">Overview</label>
                             <div className="space-y-2">
-                                <label className="text-xs font-bold uppercase tracking-wider text-white/50">{t('inspectorPalette')}</label>
-                                <div className="flex gap-2">
-                                    {data.colors.map((color: string, i: number) => (
-                                        <div key={i} className="group relative">
-                                            <div 
-                                                className="w-8 h-8 rounded-full border border-white/20 shadow-sm cursor-pointer hover:scale-110 transition-transform" 
-                                                style={{ backgroundColor: color }}
-                                                onClick={() => copyToClipboard(color)}
-                                            />
-                                            <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] bg-black/80 px-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity">{color}</span>
+                                <p className="text-sm leading-relaxed text-white/90">
+                                    <strong className="text-white/50 block mb-1">Subject:</strong>
+                                    {data.subject}
+                                </p>
+                            </div>
+                        </section>
+
+                        {data.detectedObjects && data.detectedObjects.length > 0 && (
+                            <section className="space-y-3">
+                                <label className="text-xs font-black uppercase tracking-[0.2em] text-theme-accent block">Detected Objects</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {data.detectedObjects.map((obj: string, i: number) => (
+                                        <span key={i} className="px-2 py-1 bg-white/10 rounded-md text-[10px] font-bold border border-white/5 uppercase tracking-wider">{obj}</span>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-6">
+                            <section className="space-y-1">
+                                <label className="text-xs font-black uppercase tracking-[0.2em] text-theme-accent block">Style</label>
+                                <p className="text-sm font-medium">{data.style}</p>
+                            </section>
+                            <section className="space-y-1">
+                                <label className="text-xs font-black uppercase tracking-[0.2em] text-theme-accent block">Lighting</label>
+                                <p className="text-sm font-medium">{data.lighting}</p>
+                            </section>
+                        </div>
+
+                        <section className="space-y-2">
+                            <label className="text-xs font-black uppercase tracking-[0.2em] text-theme-accent block">Dominant Palette</label>
+                            <div className="flex gap-2">
+                                {data.colors?.map((color: string, i: number) => (
+                                    <div key={i} className="group relative">
+                                        <div 
+                                            className="w-8 h-8 rounded-full border border-white/20 shadow-sm cursor-pointer hover:scale-125 transition-transform" 
+                                            style={{ backgroundColor: color }}
+                                            onClick={() => copyToClipboard(color)}
+                                            data-tooltip-id="app-tooltip"
+                                            data-tooltip-content={color}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+
+                        {data.styleSuggestions && data.styleSuggestions.length > 0 && (
+                            <section className="space-y-3">
+                                <label className="text-xs font-black uppercase tracking-[0.2em] text-theme-accent block">Creative Suggestions</label>
+                                <div className="space-y-3">
+                                    {data.styleSuggestions.map((s: any, i: number) => (
+                                        <div key={i} className="p-3 bg-white/5 rounded-xl border border-white/10 hover:bg-white/10 transition-colors">
+                                            <h4 className="text-xs font-bold text-theme-accent mb-1">{s.title}</h4>
+                                            <p className="text-[10px] leading-tight text-white/60">{s.description}</p>
                                         </div>
                                     ))}
                                 </div>
-                            </div>
+                            </section>
                         )}
 
-                        <div className="space-y-2 bg-white/5 p-4 rounded-xl border border-white/10">
-                            <div className="flex justify-between items-center">
-                                <label className="text-xs font-bold uppercase tracking-wider text-theme-accent">{t('inspectorPrompt')}</label>
+                        <section className="space-y-2 bg-white/5 p-4 rounded-xl border border-white/10">
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="text-xs font-black uppercase tracking-[0.2em] text-theme-accent">AI Master Prompt</label>
                                 <button onClick={() => copyToClipboard(data.prompt)} className="text-white/50 hover:text-white transition-colors" title={t('copyToClipboard')}>
                                     <CopyIcon className="w-4 h-4" />
                                 </button>
                             </div>
-                            <p className="text-xs text-white/70 italic leading-relaxed select-all">
+                            <p className="text-[11px] text-white/70 italic leading-relaxed select-all">
                                 {data.prompt}
                             </p>
-                        </div>
+                        </section>
                     </>
                 ) : (
                     <div className="text-center text-white/50 mt-10">

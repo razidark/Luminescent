@@ -1,3 +1,7 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+*/
 
 export default {
     "createEditEvolve": "Crie. Edite. {evolveWord}.",
@@ -88,6 +92,7 @@ export default {
     "toolMerge": "Mesclar IA",
     "toolCaptions": "Legendas",
     "toolVariations": "Variações",
+    "toolStyleTransfer": "Transferência de Estilo",
     "adjustTitle": "Aplicar Ajustes Profissionais",
     "adjBrightness": "Brilho",
     "adjContrast": "Contraste",
@@ -429,9 +434,7 @@ export default {
     "galleryRemix": "Remixar",
     "galleryDownload": "Baixar",
     "galleryViewPrompt": "Ver Prompt",
-    "toolStyleTransfer": "Transferência de Estilo",
     "styleTransferDescription": "Aplique o estilo artístico de uma imagem a outra para uma mistura criativa única.",
-    "toolCaptions": "Legendas",
     "captionsDescription": "Gere legendas descritivas para sua imagem, fundamentadas com resultados de pesquisa na web.",
     "loadingStyleTransfer": "Transferindo estilo artístico...",
     "actionStyleTransfer": "Transferência de Estilo",
@@ -446,7 +449,6 @@ export default {
     "captionsSources": "Fontes da Pesquisa Google",
     "captionsMore": "Gerar Mais",
     "captionsGenerate": "Gerar Legendas",
-    "toolVariations": "Variações",
     "variationsDescription": "Gere variações criativas da sua foto. A IA pode reinterpretar estilo, fundo e clima.",
     "variationsPanelTitle": "Gerar Variações de Imagem",
     "variationsPanelDescription": "Crie versões diferentes da sua imagem. Ajuste o nível de criatividade para controlar o quanto a IA muda o original.",
@@ -490,7 +492,6 @@ export default {
     "strengthNormal": "Normal",
     "strengthStrong": "Forte",
     "enhanceTitle": "Melhoria IA",
-    "enhanceDescription": "Melhore automaticamente a qualidade da imagem, a nitidez dos detalhes e ajuste a iluminação.",
     "enhanceSubtleDesc": "Clareza menor e redução de ruído.",
     "enhanceMediumDesc": "Melhoria equilibrada de detalhes e ajuste de iluminação.",
     "enhanceStrongDesc": "Nitidez vibrante e detalhes em alta definição.",
@@ -505,12 +506,12 @@ export default {
     "wikiToolsEdit": "Ferramentas de Edição",
     "wikiToolsEditContent": "• **Apagar (Inpainting)**: Remova objetos indesejados ou substitua-os por conteúdo gerado.\n• **Retocar**: Retoque profissional de retratos e ajustes localizados.\n• **Mesclar**: Misture inteligentemente conteúdo, estilo ou personagens de duas imagens.\n• **Foco**: Adicione efeitos realistas de bokeh/profundidade de campo.\n• **Esboço para Imagem**: Transforme desenhos rascunhados em arte polida.\n• **Texto e Memeify**: Adicione tipografia e gere legendas de meme automaticamente.\n• **Cortar e Expandir**: Redimensione imagens ou use preenchimento generativo para expandir a tela.\n• **Inspetor IA**: Analise imagens para obter detalhes técnicos (prompt, iluminação, estilo).",
     "wikiToolsGen": "Criação Generativa",
-    "wikiToolsGenContent": "• **Gerador de Imagens**: Crie imagens de alta qualidade a partir de prompts de texto usando o Imagen 3.\n• **Variações**: Gere variações estilísticas de uma imagem existente.\n• **Cardify**: Transforme fotos em cards colecionáveis personalizados.\n• **Estúdio de Produto**: Crie fotos de produtos profissionais com substituição de fundo e geração de sombras.\n• **Transferência de Estilo**: Aplique o estilo artístico de uma imagem em outra.",
+    "wikiToolsGenContent": "• **Gerador de Imagens**: Crie imagens de alta qualidade a partir de prompts de texto usando o Imagen 3.\n• **Variations**: Gere variações estilísticas de uma imagem existente.\n• **Cardify**: Transforme fotos em cards colecionáveis personalizados.\n• **Estúdio de Produto**: Crie fotos de produtos profissionais com substituição de fundo e geração de sombras.\n• **Transferência de Estilo**: Aplique o estilo artístico de uma imagem em outra.",
     "wikiToolsVideo": "Vídeo e Animação",
     "wikiToolsVideoContent": "• **Geração de Vídeo**: Alimentado pelo Veo 3.1, crie clipes de vídeo curtos a partir de prompts de texto ou anime imagens estáticas com controles de movimento de câmera.\n• **Criador de GIF**: Compile seu histórico de edição em um GIF animado para mostrar seu processo criativo.",
     "wikiModelsTitle": "Modelos de IA",
     "wikiModelsGemini": "Gemini 3 Pro e 2.5 Flash",
-    "wikiModelsGeminiContent": "O Luminescent usa uma poderosa arquitetura híbrida. O Gemini 2.5 Flash lida com tarefas de texto e visão em tempo real para velocidade máxima, enquanto o Gemini 3 Pro é implantado para raciocínio criativo complexo, como gerar legendas de meme, projetar cards colecionáveis e inventar prompts criativos. As capacidades nativas de áudio do Flash 2.5 permitem a interação de voz ao vivo.",
+    "wikiModelsGeminiContent": "O Luminescent usa uma poderosa arquitetura híbrida. O Gemini 2.5 Flash lida com tarefas de texto e visão em tempo real para velocidade máxima, enquanto o Gemini 3 Pro é implantado para raciocínio criativo complexo, como gerar legendas de meme, projetar cards colecionáveis e inventar prompts criativos. As capacidades nativas de áudio do Flash 2.5 permitiriam a interação de voz ao vivo.",
     "wikiModelsImagen": "Imagen 3",
     "wikiModelsImagenContent": "O modelo de texto para imagem de mais alta qualidade do Google, oferecendo fotorrealismo incrível e aderência ao prompt para geração de imagens.",
     "wikiModelsVeo": "Veo 3.1",

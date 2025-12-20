@@ -88,8 +88,8 @@ const fileToGenerativePart = async (file: File): Promise<Part> => {
  * Parses the Gemini API response to extract the generated image data URL.
  */
 const handleApiResponse = (response: GenerateContentResponse, context: string): string => {
-    if (response.promptFeedback?.blockReason) {
-        throw new Error(`Solicitação bloqueada: ${response.promptFeedback.blockReason}.`);
+    if (response.candidates?.[0]?.finishReason === 'SAFETY') {
+        throw new Error(`A solicitação foi bloqueada pelos filtros de segurança da IA. Tente um prompt diferente.`);
     }
 
     const parts = response.candidates?.[0]?.content?.parts;
@@ -99,11 +99,6 @@ const handleApiResponse = (response: GenerateContentResponse, context: string): 
                 return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
             }
         }
-    }
-
-    const finishReason = response.candidates?.[0]?.finishReason;
-    if (finishReason && finishReason !== 'STOP') {
-        throw new Error(`A geração parou prematuramente: ${finishReason}`);
     }
     
     throw new Error(`Nenhuma imagem retornada para ${context}.`);
@@ -116,7 +111,6 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Pr
     try {
         return await fn();
     } catch (error: any) {
-        // Se a entidade não for encontrada, a chave pode estar inválida ou expirada
         if (error.message?.includes("Requested entity was not found")) {
             if (typeof (window as any).aistudio !== 'undefined' && (window as any).aistudio.openSelectKey) {
                  await (window as any).aistudio.openSelectKey();
@@ -124,12 +118,6 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Pr
             }
         }
 
-        // Erro de faturamento ou permissão
-        if (error.status === 403 || error.message?.includes('403') || error.message?.includes('PERMISSION_DENIED')) {
-             throw new Error("Acesso Negado: Certifique-se de que o seu projeto no Google Cloud tem faturamento ativado para modelos Pro.");
-        }
-
-        // Retry para rate limits ou erros de servidor
         if (retries > 0 && (error.status === 429 || error.status >= 500)) {
             await new Promise(resolve => setTimeout(resolve, delay));
             return withRetry(fn, retries - 1, delay * 2);
@@ -555,7 +543,7 @@ export const inspectImage = async (image: File): Promise<any> => {
             contents: {
                 parts: [
                     imagePart, 
-                    { text: "Inspecione esta imagem. Retorne JSON {subject, style, composition, lighting, colors, prompt}." }
+                    { text: "Inspecione profundamente esta imagem. Identifique os principais objetos, as cores dominantes, o estilo artístico, a composição e iluminação. Além disso, forneça 3 sugestões de estilos criativos para transformar esta imagem. Retorne um objeto JSON." }
                 ]
             },
             config: {
@@ -568,7 +556,18 @@ export const inspectImage = async (image: File): Promise<any> => {
                         composition: { type: Type.STRING },
                         lighting: { type: Type.STRING },
                         colors: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        prompt: { type: Type.STRING }
+                        prompt: { type: Type.STRING },
+                        detectedObjects: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        styleSuggestions: { 
+                            type: Type.ARRAY, 
+                            items: { 
+                                type: Type.OBJECT, 
+                                properties: { 
+                                    title: { type: Type.STRING }, 
+                                    description: { type: Type.STRING } 
+                                } 
+                            } 
+                        }
                     }
                 }
             }
