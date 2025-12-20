@@ -14,7 +14,9 @@
     "@google/genai": "^1.10.0",
     "react-image-crop": "^11.0.6",
     "react-tooltip": "^5.27.1",
-    "gifshot": "0.4.5"
+    "gifshot": "0.4.5",
+    "@vitejs/plugin-react": "^5.1.2",
+    "vite": "^7.3.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
