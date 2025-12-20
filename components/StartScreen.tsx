@@ -5,7 +5,14 @@
 */
 
 import * as React from 'react';
-import { UploadIcon, PaintBrushIcon, FilterIcon, RemoveBgIcon, ExpandIcon, UpscaleIcon, CardIcon, GenerateIcon, VideoIcon, MagicWandIcon, MemeIcon, RetouchIcon, TextIcon, CropIcon, AdjustIcon, ProductIcon, GalleryIcon, AddProductIcon, PaletteIcon, StyleTransferIcon, CaptionIcon, VariationsIcon, ClockIcon, EnhanceIcon, CameraIcon } from './icons';
+import { 
+    UploadIcon, PaintBrushIcon, FilterIcon, RemoveBgIcon, ExpandIcon, 
+    UpscaleIcon, CardIcon, GenerateIcon, VideoIcon, MagicWandIcon, 
+    MemeIcon, RetouchIcon, TextIcon, CropIcon, AdjustIcon, 
+    ProductIcon, GalleryIcon, AddProductIcon, PaletteIcon, 
+    StyleTransferIcon, CaptionIcon, VariationsIcon, ClockIcon, 
+    EnhanceIcon, CameraIcon, PencilIcon, FocusIcon, MergeIcon 
+} from './icons';
 import { type Tab, type Creation } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import TiltCard from './TiltCard';
@@ -17,6 +24,18 @@ interface StartScreenProps {
   onVideoClick: () => void;
   onGalleryClick: () => void;
   onCameraClick: () => void;
+}
+
+interface FeatureItem {
+    id: Tab;
+    icon: React.ReactNode;
+    title: string;
+    description: string;
+}
+
+interface FeatureCategory {
+    titleKey: string;
+    items: FeatureItem[];
 }
 
 const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick, onVideoClick, onGalleryClick, onCameraClick }) => {
@@ -58,46 +77,16 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
     return () => clearTimeout(timer);
   }, [currentText, isDeleting, currentWordIndex, words, typingSpeed]);
 
-  // Load recent creations efficiently
   React.useEffect(() => {
       const loadRecents = async () => {
           try {
-              // Efficiently fetch only the 4 most recent creations using a cursor
-              const recentItems = await getRecentCreations(4);
-              // Filter only images for direct editing (though getRecentCreations returns mixed, we filter here for safety if needed, or just display mixed)
-              // For editing flow, we prefer images.
-              const recentImages = recentItems.filter(c => c.type === 'image');
-              setRecentCreations(recentImages);
+              const recentItems = await getRecentCreations(5);
+              setRecentCreations(recentItems.filter(c => c.type === 'image'));
           } catch (e) {
               console.error("Failed to load recent creations", e);
           }
       };
       loadRecents();
-  }, []);
-
-  React.useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible');
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.1 }
-    );
-
-    const featureCards = featuresRef.current?.querySelectorAll('.feature-card');
-    if (featureCards) {
-      featureCards.forEach((card) => observer.observe(card));
-    }
-
-    return () => {
-      if (featureCards) {
-        featureCards.forEach((card) => observer.unobserve(card));
-      }
-    };
   }, []);
 
   const handleTriggerFileUpload = (tab: Tab) => {
@@ -110,18 +99,14 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
     if (files && files[0]) {
       onFileSelect(files[0], targetTab);
     }
-    if (e.target) {
-        e.target.value = '';
-    }
+    if (e.target) e.target.value = '';
   };
   
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDraggingOver(false);
     const files = e.dataTransfer.files;
-    if (files && files[0]) {
-      onFileSelect(files[0], 'erase'); 
-    }
+    if (files && files[0]) onFileSelect(files[0], 'erase');
   }
 
   const handleRecentClick = (creation: Creation) => {
@@ -131,129 +116,52 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
       }
   };
   
-  const iconClassName = "w-10 h-10 text-gray-600 dark:text-gray-400 group-hover:text-white transition-colors duration-300";
+  const iconClassName = "w-8 h-8 text-theme-accent transition-colors duration-300";
 
-  const features: { id: Tab, icon: React.ReactNode, title: string, description: string }[] = [
-    { 
-      id: 'erase', 
-      icon: <PaintBrushIcon className={iconClassName} />, 
-      title: t('toolErase'), 
-      description: t('magicEraseDescription')
-    },
-    { 
-      id: 'retouch', 
-      icon: <RetouchIcon className={iconClassName} />, 
-      title: t('toolRetouch'), 
-      description: t('magicBrushDescription')
-    },
-    { 
-      id: 'add-product', 
-      icon: <AddProductIcon className={iconClassName} />, 
-      title: t('toolAddProduct'), 
-      description: t('addProductDescription')
-    },
-    { 
-      id: 'background', 
-      icon: <RemoveBgIcon className={iconClassName} />, 
-      title: t('toolBackground'), 
-      description: t('generativeBackgroundDescription')
-    },
-    { 
-      id: 'expand', 
-      icon: <ExpandIcon className={iconClassName} />, 
-      title: t('toolExpand'), 
-      description: t('expandCanvasDescription')
-    },
-    { 
-      id: 'variations', 
-      icon: <VariationsIcon className={iconClassName} />, 
-      title: t('toolVariations'), 
-      description: t('variationsDescription')
-    },
-    { 
-      id: 'crop', 
-      icon: <CropIcon className={iconClassName} />, 
-      title: t('toolCrop'), 
-      description: t('cropDescription')
+  const categories: FeatureCategory[] = [
+    {
+        titleKey: "catGenerative",
+        items: [
+            { id: 'variations', icon: <VariationsIcon className={iconClassName} />, title: t('toolVariations'), description: t('variationsDescription') },
+            { id: 'add-product', icon: <AddProductIcon className={iconClassName} />, title: t('toolAddProduct'), description: t('addProductDescription') },
+            { id: 'sketch', icon: <PencilIcon className={iconClassName} />, title: t('toolSketch'), description: t('sketchDescription') },
+            { id: 'background', icon: <RemoveBgIcon className={iconClassName} />, title: t('toolBackground'), description: t('generativeBackgroundDescription') },
+        ]
     },
     {
-      id: 'upscale',
-      icon: <UpscaleIcon className={iconClassName} />,
-      title: t('toolUpscale'),
-      description: t('aiUpscalerDescription')
+        titleKey: "catAIEnhancements",
+        items: [
+            { id: 'erase', icon: <PaintBrushIcon className={iconClassName} />, title: t('toolErase'), description: t('magicEraseDescription') },
+            { id: 'retouch', icon: <RetouchIcon className={iconClassName} />, title: t('toolRetouch'), description: t('magicBrushDescription') },
+            { id: 'enhance', icon: <EnhanceIcon className={iconClassName} />, title: t('toolEnhance'), description: t('enhanceDescription') },
+            { id: 'restore', icon: <MagicWandIcon className={iconClassName} />, title: t('toolRestore'), description: t('restoreDescription') },
+            { id: 'upscale', icon: <UpscaleIcon className={iconClassName} />, title: t('toolUpscale'), description: t('aiUpscalerDescription') },
+        ]
     },
     {
-      id: 'enhance',
-      icon: <EnhanceIcon className={iconClassName} />,
-      title: t('toolEnhance'),
-      description: t('enhanceDescription')
+        titleKey: "catCreative",
+        items: [
+            { id: 'filters', icon: <FilterIcon className={iconClassName} />, title: t('toolFilters'), description: t('creativeFiltersDescription') },
+            { id: 'style-transfer', icon: <StyleTransferIcon className={iconClassName} />, title: t('toolStyleTransfer'), description: t('styleTransferDescription') },
+            { id: 'merge', icon: <MergeIcon className={iconClassName} />, title: t('toolMerge'), description: t('mergeDescription') },
+            { id: 'focus', icon: <FocusIcon className={iconClassName} />, title: t('toolFocus'), description: t('focusDescription') },
+            { id: 'cardify', icon: <CardIcon className={iconClassName} />, title: t('toolCardify'), description: t('cardifyDescription') },
+        ]
     },
     {
-      id: 'restore',
-      icon: <MagicWandIcon className={iconClassName} />,
-      title: t('toolRestore'),
-      description: t('restoreDescription')
-    },
-    {
-      id: 'product',
-      icon: <ProductIcon className={iconClassName} />,
-      title: t('toolProductStudio'),
-      description: t('productStudioDescription')
-    },
-     { 
-      id: 'adjust', 
-      icon: <AdjustIcon className={iconClassName} />, 
-      title: t('toolAdjust'), 
-      description: t('adjustDescription')
-    },
-     { 
-      id: 'color', 
-      icon: <PaletteIcon className={iconClassName} />, 
-      title: t('toolColor'), 
-      description: t('colorDescription')
-    },
-     { 
-      id: 'filters', 
-      icon: <FilterIcon className={iconClassName} />, 
-      title: t('toolFilters'), 
-      description: t('creativeFiltersDescription')
-    },
-     { 
-      id: 'style-transfer', 
-      icon: <StyleTransferIcon className={iconClassName} />, 
-      title: t('toolStyleTransfer'), 
-      description: t('styleTransferDescription')
-    },
-    { 
-      id: 'text', 
-      icon: <TextIcon className={iconClassName} />, 
-      title: t('toolText'), 
-      description: t('addTextDescription')
-    },
-     { 
-      id: 'captions', 
-      icon: <CaptionIcon className={iconClassName} />, 
-      title: t('toolCaptions'), 
-      description: t('captionsDescription')
-    },
-    {
-      id: 'memeify',
-      icon: <MemeIcon className={iconClassName} />,
-      title: t('toolMemeify'),
-      description: t('memeifyDescription')
-    },
-    {
-      id: 'cardify',
-      icon: <CardIcon className={iconClassName} />,
-      title: t('toolCardify'),
-      description: t('cardifyDescription')
+        titleKey: "catClassic",
+        items: [
+            { id: 'crop', icon: <CropIcon className={iconClassName} />, title: t('toolCrop'), description: t('cropDescription') },
+            { id: 'adjust', icon: <AdjustIcon className={iconClassName} />, title: t('toolAdjust'), description: t('adjustDescription') },
+            { id: 'text', icon: <TextIcon className={iconClassName} />, title: t('toolText'), description: t('addTextDescription') },
+            { id: 'expand', icon: <ExpandIcon className={iconClassName} />, title: t('toolExpand'), description: t('expandCanvasDescription') },
+        ]
     }
   ];
   
   const renderTitle = () => {
     const titleString = t('createEditEvolve');
     const splitTitle = titleString.split('{evolveWord}');
-    
     return (
         <>
             {splitTitle[0]}
@@ -264,169 +172,135 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
         </>
     );
   };
-  
-  const techStack = [
-    { name: 'Gemini 3 Pro', gradient: 'from-blue-500 via-indigo-500 to-purple-500', shadow: 'shadow-indigo-500/40' },
-    { name: 'Flash-Lite', gradient: 'from-yellow-400 to-orange-500', shadow: 'shadow-orange-500/40' },
-    { name: 'Veo 3.1', gradient: 'from-emerald-400 to-cyan-500', shadow: 'shadow-emerald-500/40' },
-    { name: 'Imagen 3', gradient: 'from-pink-400 to-rose-600', shadow: 'shadow-pink-500/40' },
-    { name: 'React 19', gradient: 'from-cyan-400 to-blue-600', shadow: 'shadow-cyan-500/40' },
-  ];
 
   return (
     <div 
-      className={`w-full max-w-6xl mx-auto text-center p-8 transition-all duration-300 rounded-3xl border-4 relative overflow-hidden ${isDraggingOver ? 'bg-theme-accent/10 border-dashed border-theme-accent scale-[1.02] shadow-2xl' : 'border-transparent'}`}
+      className={`w-full max-w-7xl mx-auto p-4 md:p-8 transition-all duration-300 rounded-3xl relative min-h-screen overflow-y-auto custom-scrollbar ${isDraggingOver ? 'bg-theme-accent/5 ring-4 ring-dashed ring-theme-accent scale-[1.01]' : ''}`}
       onDragOver={(e) => { e.preventDefault(); setIsDraggingOver(true); }}
       onDragLeave={() => setIsDraggingOver(false)}
       onDrop={handleDrop}
     >
-      {/* Background Particles - Pure CSS Animation for Performance */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-         {Array.from({ length: 20 }).map((_, i) => {
-             const initialLeft = (i * 137) % 100;
-             const initialTop = (i * 293) % 100;
-             return (
-                 <div 
-                    key={i}
-                    className="absolute bg-theme-accent/20 rounded-full blur-md animate-float-up"
-                    style={{
-                        left: `${initialLeft}%`,
-                        top: `${initialTop}%`, 
-                        width: `${(i % 5) * 5 + 5}px`,
-                        height: `${(i % 5) * 5 + 5}px`,
-                        animationDuration: `${(i % 10) + 15}s`, // Slower, smoother animation
-                        animationDelay: `-${i * 2}s`,
-                    }}
-                 />
-             )
-         })}
+      {/* Background Particles */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden -z-10">
+         {Array.from({ length: 15 }).map((_, i) => (
+             <div 
+                key={i}
+                className="absolute bg-theme-accent/10 rounded-full blur-2xl animate-float-up"
+                style={{
+                    left: `${(i * 141) % 100}%`,
+                    top: `${(i * 277) % 100}%`, 
+                    width: `${(i % 5) * 40 + 60}px`,
+                    height: `${(i % 5) * 40 + 60}px`,
+                    animationDuration: `${(i % 10) + 20}s`,
+                    animationDelay: `-${i * 3}s`,
+                }}
+             />
+         ))}
       </div>
     
-      <div className="flex flex-col items-center gap-6 animate-fade-in relative z-10">
-        <h1 className="text-5xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 sm:text-6xl md:text-7xl h-[1.2em] flex flex-col sm:block items-center">
-            {renderTitle()}
-        </h1>
-        
-        {/* Tech Chips */}
-        <div className="flex flex-wrap justify-center gap-3 -mt-2 mb-4">
-             {techStack.map((tech, i) => (
-                 <span 
-                    key={i} 
-                    className={`px-5 py-1.5 rounded-full text-xs font-extrabold text-white backdrop-blur-md transition-all duration-300 hover:scale-110 hover:-translate-y-1 border border-white/20 bg-gradient-to-r ${tech.gradient} shadow-lg ${tech.shadow}`}
-                 >
-                     {tech.name}
-                 </span>
-             ))}
-        </div>
+      <div className="flex flex-col items-center gap-10 animate-fade-in relative z-10 pb-20">
+        {/* Hero Section */}
+        <header className="max-w-4xl w-full text-center space-y-6">
+            <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 sm:text-6xl lg:text-7xl">
+                {renderTitle()}
+            </h1>
+            <p className="max-w-2xl mx-auto text-lg text-gray-600 dark:text-gray-400 md:text-xl font-medium leading-relaxed">
+                {t('nextGenPhotoEditing')}
+            </p>
 
-        <p className="max-w-2xl text-lg text-gray-600 dark:text-gray-400 md:text-xl">
-          {t('nextGenPhotoEditing')}
-        </p>
+            <div className="pt-6 flex flex-wrap items-center justify-center gap-4">
+                <button onClick={onGenerateClick} className="px-8 py-4 text-lg font-bold text-white bg-theme-gradient rounded-2xl shadow-xl shadow-theme-accent/20 hover:shadow-theme-accent/40 hover:-translate-y-1 active:scale-95 transition-all flex items-center gap-3">
+                    <GenerateIcon className="w-6 h-6" /> {t('createAnImage')}
+                </button>
+                <button onClick={onVideoClick} className="px-8 py-4 text-lg font-bold text-white bg-theme-gradient rounded-2xl shadow-xl shadow-theme-accent/20 hover:shadow-theme-accent/40 hover:-translate-y-1 active:scale-95 transition-all flex items-center gap-3">
+                    <VideoIcon className="w-6 h-6" /> {t('createAVideo')}
+                </button>
+                <button onClick={() => handleTriggerFileUpload('erase')} className="px-8 py-4 text-lg font-bold text-gray-800 dark:text-gray-200 bg-white dark:bg-white/10 rounded-2xl border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/20 active:scale-95 transition-all flex items-center gap-3">
+                    <UploadIcon className="w-6 h-6" /> {t('editAPhoto')}
+                </button>
+                <button onClick={onCameraClick} className="p-4 text-gray-800 dark:text-gray-200 bg-white dark:bg-white/10 rounded-2xl border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/20 active:scale-95 transition-all" title={t('cameraTitle')}>
+                    <CameraIcon className="w-7 h-7" />
+                </button>
+                <input ref={fileInputRef} type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+            </div>
+        </header>
 
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
-            <button 
-                onClick={() => onGenerateClick()} 
-                data-tooltip-id="app-tooltip"
-                data-tooltip-content={t('createAnImage')}
-                className="relative w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white bg-theme-gradient animate-gradient-move rounded-full cursor-pointer group transition-all duration-300 ease-in-out shadow-lg shadow-theme-accent/20 hover:shadow-xl hover:shadow-theme-accent/40 hover:-translate-y-px active:scale-95 active:shadow-inner"
-            >
-                <GenerateIcon className="w-6 h-6 mr-3 transition-transform duration-500 ease-in-out group-hover:rotate-12 group-hover:scale-110" />
-                {t('createAnImage')}
-            </button>
-            <button 
-                onClick={() => onVideoClick()} 
-                data-tooltip-id="app-tooltip"
-                data-tooltip-content={t('createAVideo')}
-                className="relative w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white bg-theme-gradient animate-gradient-move rounded-full cursor-pointer group transition-all duration-300 ease-in-out shadow-lg shadow-theme-accent/20 hover:shadow-xl hover:shadow-theme-accent/40 hover:-translate-y-px active:scale-95 active:shadow-inner"
-            >
-                <VideoIcon className="w-6 h-6 mr-3 transition-transform duration-500 ease-in-out group-hover:rotate-[-6deg] group-hover:scale-110" />
-                {t('createAVideo')}
-            </button>
-            <button 
-                onClick={() => onGalleryClick()} 
-                data-tooltip-id="app-tooltip"
-                data-tooltip-content={t('myCreations')}
-                className="relative w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white bg-theme-gradient animate-gradient-move rounded-full cursor-pointer group transition-all duration-300 ease-in-out shadow-lg shadow-theme-accent/20 hover:shadow-xl hover:shadow-theme-accent/40 hover:-translate-y-px active:scale-95 active:shadow-inner"
-            >
-                <GalleryIcon className="w-6 h-6 mr-3 transition-transform duration-500 ease-in-out group-hover:scale-110" />
-                {t('myCreations')}
-            </button>
-            <button 
-                onClick={() => handleTriggerFileUpload('erase')} 
-                data-tooltip-id="app-tooltip"
-                data-tooltip-content={t('editAPhoto')}
-                className="relative w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-gray-800 dark:text-gray-200 bg-gray-200 dark:bg-white/10 rounded-full cursor-pointer group transition-all duration-300 ease-in-out hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 ring-2 ring-transparent hover:ring-theme-accent/50"
-            >
-                <UploadIcon className="w-6 h-6 mr-3 transition-transform duration-500 ease-in-out group-hover:translate-y-[-2px]" />
-                {t('editAPhoto')}
-            </button>
-            <button 
-                onClick={onCameraClick}
-                data-tooltip-id="app-tooltip"
-                data-tooltip-content={t('cameraTitle')}
-                className="relative w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-gray-800 dark:text-gray-200 bg-gray-200 dark:bg-white/10 rounded-full cursor-pointer group transition-all duration-300 ease-in-out hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 ring-2 ring-transparent hover:ring-theme-accent/50"
-            >
-                <CameraIcon className="w-6 h-6 mr-3 transition-transform duration-500 ease-in-out group-hover:scale-110" />
-                {t('camera')}
-            </button>
-
-            <input ref={fileInputRef} id="image-upload-start" type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
-        </div>
-        <p className="text-sm text-gray-500 dark:text-gray-500 -mt-2">{t('dragAndDrop')}</p>
-
-        {/* Recent Creations Section */}
+        {/* Recent Section */}
         {recentCreations.length > 0 && (
-            <div className="w-full mt-8 animate-fade-in">
-                <div className="flex items-center justify-center gap-2 mb-4">
-                    <ClockIcon className="w-5 h-5 text-theme-accent" />
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('recentCreations')}</h3>
+            <section className="w-full max-w-5xl animate-fade-in">
+                <div className="flex items-center gap-3 mb-6 px-2">
+                    <div className="p-2 bg-theme-accent/10 rounded-lg">
+                        <ClockIcon className="w-5 h-5 text-theme-accent" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200">{t('recentCreations')}</h3>
                 </div>
-                <div className="flex flex-wrap justify-center gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                     {recentCreations.map((creation) => (
-                        <div key={creation.id} data-tooltip-id="app-tooltip" data-tooltip-content={t('recentCreations')}>
-                            <TiltCard 
-                                onClick={() => handleRecentClick(creation)}
-                                className="w-32 h-32 sm:w-40 sm:h-40 rounded-xl overflow-hidden cursor-pointer group border-2 border-transparent hover:border-theme-accent/50 transition-all bg-gray-200 dark:bg-white/5"
-                            >
+                        <TiltCard 
+                            key={creation.id}
+                            onClick={() => handleRecentClick(creation)}
+                            className="aspect-square rounded-2xl overflow-hidden cursor-pointer group border border-gray-200 dark:border-white/10 hover:border-theme-accent transition-all bg-white dark:bg-black/20 p-2"
+                        >
+                            <div className="w-full h-full rounded-xl overflow-hidden relative">
                                 <img 
                                     src={URL.createObjectURL(creation.thumbnailBlob)} 
                                     alt="Recent" 
-                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
                                     onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)}
                                 />
-                                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
-                            </TiltCard>
-                        </div>
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                        </TiltCard>
                     ))}
+                    <button onClick={onGalleryClick} className="aspect-square rounded-2xl border-2 border-dashed border-gray-300 dark:border-white/10 flex flex-col items-center justify-center gap-2 hover:bg-white/40 dark:hover:bg-white/5 transition-colors text-gray-500 hover:text-theme-accent">
+                        <GalleryIcon className="w-8 h-8" />
+                        <span className="text-sm font-bold">{t('myCreations')}</span>
+                    </button>
                 </div>
-            </div>
+            </section>
         )}
 
-        <div className="mt-16 w-full" ref={featuresRef}>
-            <div className="relative flex items-center mb-8">
-              <div className="flex-grow border-t border-gray-300 dark:border-gray-700"></div>
-              <span className="flex-shrink mx-4 text-gray-500 dark:text-gray-400 font-semibold">{t('startWithTool')}</span>
-              <div className="flex-grow border-t border-gray-300 dark:border-gray-700"></div>
+        {/* Tool Categories */}
+        <section className="w-full max-w-7xl space-y-12">
+            <div className="flex items-center justify-center gap-4">
+                <div className="h-px flex-grow bg-gray-300 dark:bg-gray-800"></div>
+                <h2 className="text-2xl font-black uppercase tracking-widest text-gray-400 dark:text-gray-600">{t('startWithTool')}</h2>
+                <div className="h-px flex-grow bg-gray-300 dark:bg-gray-800"></div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {features.map((feature, index) => (
-                    <div key={feature.id} className="feature-card h-full" style={{ transitionDelay: `${index * 50}ms` }}>
-                      <div data-tooltip-id="app-tooltip" data-tooltip-content={feature.description} className="h-full">
-                          <TiltCard 
-                            onClick={() => handleTriggerFileUpload(feature.id)}
-                            className="group w-full h-full glass border border-white/20 dark:border-white/5 p-6 rounded-2xl flex flex-col items-center text-center cursor-pointer"
-                          >
-                            <div className="flex items-center justify-center w-20 h-20 bg-gray-100 dark:bg-white/10 rounded-full mb-4 transition-all duration-300 group-hover:bg-theme-gradient group-hover:text-white border border-gray-200 dark:border-white/10">
-                              {feature.icon}
-                            </div>
-                            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 transition-colors">{feature.title}</h3>
-                            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{feature.description}</p>
-                          </TiltCard>
-                      </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8" ref={featuresRef}>
+                {categories.map((cat, catIdx) => (
+                    <div key={catIdx} className="space-y-4">
+                        <h4 className="text-sm font-black uppercase tracking-[0.2em] text-theme-accent ml-2 flex items-center gap-2">
+                             <div className="w-2 h-2 rounded-full bg-theme-accent animate-pulse"></div>
+                             {t(cat.titleKey as any)}
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {cat.items.map((item) => (
+                                <TiltCard 
+                                    key={item.id}
+                                    onClick={() => handleTriggerFileUpload(item.id)}
+                                    className="group glass border border-white/20 dark:border-white/5 p-5 rounded-2xl flex flex-col gap-3 cursor-pointer hover:bg-white/60 dark:hover:bg-white/10 transition-colors shadow-sm"
+                                >
+                                    <div className="flex items-start justify-between">
+                                        <div className="p-3 bg-gray-100 dark:bg-white/10 rounded-xl transition-all group-hover:bg-theme-accent group-hover:text-white shadow-inner">
+                                            {item.icon}
+                                        </div>
+                                        <div className="p-2 opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0">
+                                            <svg className="w-5 h-5 text-theme-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <h3 className="font-bold text-gray-900 dark:text-white group-hover:text-theme-accent transition-colors">{item.title}</h3>
+                                        <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed line-clamp-2">{item.description}</p>
+                                    </div>
+                                </TiltCard>
+                            ))}
+                        </div>
                     </div>
                 ))}
             </div>
-        </div>
+        </section>
       </div>
     </div>
   );

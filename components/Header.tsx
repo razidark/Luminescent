@@ -7,6 +7,7 @@ import * as React from 'react';
 import { LuminescenceIcon, UploadIcon, BookIcon, ChatIcon, QuestionMarkIcon, HistoryIcon } from './icons';
 import AnalogClock from './AnalogClock';
 import { useLanguage } from '../contexts/LanguageContext';
+// FIX: Corrected import syntax for ThemeSelector
 import ThemeSelector from './ThemeSelector';
 import ModeSelector from './ModeSelector';
 import BackgroundSelector from './BackgroundSelector';
@@ -74,13 +75,36 @@ const Header: React.FC<HeaderProps> = ({
     isHistoryAvailable
 }) => {
   const { t } = useLanguage();
+  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
+
+  // Check initial login state
+  React.useEffect(() => {
+      const checkKey = async () => {
+          if (typeof (window as any).aistudio !== 'undefined' && (window as any).aistudio.hasSelectedApiKey) {
+              const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+              setIsLoggedIn(hasKey);
+          }
+      };
+      checkKey();
+  }, []);
+
+  const handleLoginToggle = async () => {
+      if (typeof (window as any).aistudio !== 'undefined' && (window as any).aistudio.openSelectKey) {
+          try {
+              await (window as any).aistudio.openSelectKey();
+              // Assume success as per race condition instructions to proceed to app
+              setIsLoggedIn(true);
+          } catch (e) {
+              console.error("Login failed", e);
+          }
+      }
+  };
 
   return (
     <header className="w-full py-3 px-4 md:px-8 glass sticky top-0 z-50 border-b-0 shadow-sm transition-all duration-300">
       <div className="flex items-center justify-between max-w-[1920px] mx-auto">
         <div className="flex-1 flex justify-start items-center gap-4">
             <AnalogClock className="hidden sm:block" />
-             {/* Navigation Controls moved to Header */}
              <div className="flex items-center gap-2">
                 {onChatClick && (
                     <button
@@ -136,10 +160,28 @@ const Header: React.FC<HeaderProps> = ({
         </div>
         
         <div className="flex-1 flex justify-end items-center gap-4">
-            
             <DigitalClock />
 
              <div className="h-8 w-px bg-gray-300 dark:bg-gray-700 hidden lg:block mx-1"></div>
+            
+            {/* Login / Profile Section */}
+            <button
+                onClick={handleLoginToggle}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all border ${isLoggedIn ? 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400' : 'bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300'} group relative`}
+                data-tooltip-id="app-tooltip"
+                data-tooltip-content={isLoggedIn ? t('connectedStatus') : t('loginWithGoogle')}
+            >
+                <div className="relative">
+                    <svg xmlns="http://www.w3.org/2000/svg" className={`w-5 h-5 ${isLoggedIn ? 'text-green-500' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    {isLoggedIn && <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-green-500 ring-2 ring-white dark:ring-gray-900 animate-pulse"></span>}
+                </div>
+                <span className="text-xs font-black uppercase tracking-widest hidden sm:inline">
+                    {isLoggedIn ? t('online') : t('loginWithGoogle')}
+                </span>
+            </button>
+
             <button
               onClick={onUploadClick}
               data-tooltip-id="app-tooltip"
