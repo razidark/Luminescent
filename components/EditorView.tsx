@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -36,7 +37,8 @@ import EnhancePanel from './EnhancePanel';
 import SketchPanel from './SketchPanel';
 import FocusPanel from './FocusPanel';
 import MergePanel from './MergePanel';
-import { UndoIcon, RedoIcon, EyeIcon, FitToScreenIcon, SaveIcon, DownloadIcon, ResetIcon, ZoomInIcon, ZoomOutIcon, HandIcon, CheckCircleIcon } from './icons';
+import ImageInspectorModal from './ImageInspectorModal';
+import { UndoIcon, RedoIcon, EyeIcon, FitToScreenIcon, SaveIcon, DownloadIcon, ResetIcon, ZoomInIcon, ZoomOutIcon, HandIcon, CheckCircleIcon, InfoIcon, ShareIcon } from './icons';
 import { dataURLtoFile } from '../utils/helpers';
 
 interface EditorViewProps {
@@ -87,6 +89,7 @@ const EditorView: React.FC<EditorViewProps> = ({
     const [isSaving, setIsSaving] = React.useState(false);
     const [isSaved, setIsSaved] = React.useState(false);
     const [isPanMode, setIsPanMode] = React.useState(false);
+    const [isInspectorOpen, setIsInspectorOpen] = React.useState(false);
     
     // Refs
     const zoomPanRef = React.useRef<ZoomPanRef>(null);
@@ -138,6 +141,23 @@ const EditorView: React.FC<EditorViewProps> = ({
         if (success) {
             setIsSaved(true);
             setTimeout(() => setIsSaved(false), 3000);
+        }
+    };
+
+    const handleShare = async () => {
+        if (!currentItem?.file) return;
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    files: [currentItem.file],
+                    title: 'Luminescent Creation',
+                    text: 'Check out my creation from Luminescent!'
+                });
+            } catch (err) {
+                console.error('Error sharing:', err);
+            }
+        } else {
+            alert('Web Share API not supported on this device.');
         }
     };
 
@@ -415,6 +435,9 @@ const EditorView: React.FC<EditorViewProps> = ({
                     <button onClick={() => setIsCompareVisible(!isCompareVisible)} className={`p-2 rounded-full transition-colors ${isCompareVisible ? 'bg-theme-accent text-white' : 'hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200'}`} data-tooltip-id="app-tooltip" data-tooltip-content={t('compareWithOriginal')}>
                         <EyeIcon className="w-6 h-6" />
                     </button>
+                    <button onClick={() => setIsInspectorOpen(true)} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors" data-tooltip-id="app-tooltip" data-tooltip-content={t('inspectorTitle')}>
+                        <InfoIcon className="w-6 h-6" />
+                    </button>
                 </div>
 
                 {/* Loading Overlay */}
@@ -449,9 +472,14 @@ const EditorView: React.FC<EditorViewProps> = ({
                             <ResetIcon className="w-5 h-5" /> {t('resetAllChanges')}
                         </button>
                         <div className="grid grid-cols-2 gap-2">
-                            <button onClick={() => handleDownload()} className="py-3 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 font-bold rounded-xl hover:bg-gray-300 dark:hover:bg-white/20 transition-all active:scale-95 flex items-center justify-center gap-2 text-sm">
-                                <DownloadIcon className="w-5 h-5" /> {t('download')}
-                            </button>
+                            <div className="flex gap-2 w-full">
+                                <button onClick={() => handleDownload()} className="flex-1 py-3 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 font-bold rounded-xl hover:bg-gray-300 dark:hover:bg-white/20 transition-all active:scale-95 flex items-center justify-center gap-2 text-sm">
+                                    <DownloadIcon className="w-5 h-5" /> {t('download')}
+                                </button>
+                                <button onClick={handleShare} className="py-3 px-3 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 font-bold rounded-xl hover:bg-gray-300 dark:hover:bg-white/20 transition-all active:scale-95 flex items-center justify-center gap-2" title={t('share')}>
+                                    <ShareIcon className="w-5 h-5" />
+                                </button>
+                            </div>
                             <button 
                                 onClick={onSaveToCreations} 
                                 disabled={isSaving || isSavingToCreations || isSaved} 
@@ -474,6 +502,12 @@ const EditorView: React.FC<EditorViewProps> = ({
                     </div>
                 </div>
             )}
+            
+            <ImageInspectorModal 
+                isOpen={isInspectorOpen} 
+                onClose={() => setIsInspectorOpen(false)} 
+                image={currentItem?.file || null}
+            />
         </div>
     );
 };

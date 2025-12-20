@@ -707,6 +707,41 @@ export const generateCardDetails = async (image: File, cardType: string): Promis
     });
 };
 
+/**
+ * Performs a deep technical inspection of the image using Gemini 2.5 Flash.
+ * Returns structured data about composition, lighting, and style.
+ */
+export const inspectImage = async (image: File): Promise<any> => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: {
+                parts: [
+                    imagePart, 
+                    { text: "Analyze this image in detail. Provide a JSON object with the following keys: 'subject' (string description), 'style' (artistic style), 'composition' (description of layout), 'lighting' (lighting type), 'colors' (array of 5 hex codes), 'prompt' (a detailed prompt to recreate this image)." }
+                ]
+            },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        subject: { type: Type.STRING },
+                        style: { type: Type.STRING },
+                        composition: { type: Type.STRING },
+                        lighting: { type: Type.STRING },
+                        colors: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        prompt: { type: Type.STRING }
+                    }
+                }
+            }
+        });
+        return JSON.parse(response.text || "{}");
+    });
+};
+
 // --- Chat & Analysis ---
 
 /**

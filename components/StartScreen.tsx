@@ -5,7 +5,7 @@
 */
 
 import * as React from 'react';
-import { UploadIcon, PaintBrushIcon, FilterIcon, RemoveBgIcon, ExpandIcon, UpscaleIcon, CardIcon, GenerateIcon, VideoIcon, MagicWandIcon, MemeIcon, RetouchIcon, TextIcon, CropIcon, AdjustIcon, ProductIcon, GalleryIcon, AddProductIcon, PaletteIcon, StyleTransferIcon, CaptionIcon, VariationsIcon, ClockIcon, EnhanceIcon } from './icons';
+import { UploadIcon, PaintBrushIcon, FilterIcon, RemoveBgIcon, ExpandIcon, UpscaleIcon, CardIcon, GenerateIcon, VideoIcon, MagicWandIcon, MemeIcon, RetouchIcon, TextIcon, CropIcon, AdjustIcon, ProductIcon, GalleryIcon, AddProductIcon, PaletteIcon, StyleTransferIcon, CaptionIcon, VariationsIcon, ClockIcon, EnhanceIcon, CameraIcon } from './icons';
 import { type Tab, type Creation } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import TiltCard from './TiltCard';
@@ -16,9 +16,10 @@ interface StartScreenProps {
   onGenerateClick: () => void;
   onVideoClick: () => void;
   onGalleryClick: () => void;
+  onCameraClick: () => void;
 }
 
-const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick, onVideoClick, onGalleryClick }) => {
+const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick, onVideoClick, onGalleryClick, onCameraClick }) => {
   const { t } = useLanguage();
   const [isDraggingOver, setIsDraggingOver] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -358,6 +359,15 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
             >
                 <UploadIcon className="w-6 h-6 mr-3 transition-transform duration-500 ease-in-out group-hover:translate-y-[-2px]" />
                 {t('editAPhoto')}
+            </button>
+            <button 
+                onClick={onCameraClick}
+                data-tooltip-id="app-tooltip"
+                data-tooltip-content={t('cameraTitle')}
+                className="relative w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-gray-800 dark:text-gray-200 bg-gray-200 dark:bg-white/10 rounded-full cursor-pointer group transition-all duration-300 ease-in-out hover:bg-gray-300 dark:hover:bg-white/20 active:scale-95 ring-2 ring-transparent hover:ring-theme-accent/50"
+            >
+                <CameraIcon className="w-6 h-6 mr-3 transition-transform duration-500 ease-in-out group-hover:scale-110" />
+                {t('camera')}
             </button>
 
             <input ref={fileInputRef} id="image-upload-start" type="file" className="hidden" accept="image/*" onChange={handleFileChange} />

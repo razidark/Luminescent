@@ -22,6 +22,7 @@ import MatrixBackground from './components/MatrixBackground';
 import WikiModal from './components/WikiModal';
 import ShortcutsModal from './components/ShortcutsModal';
 import DownloadModal from './components/DownloadModal';
+import CameraModal from './components/CameraModal';
 import { useLanguage } from './contexts/LanguageContext';
 import { useTheme } from './contexts/ThemeContext';
 import { useBackground } from './contexts/BackgroundContext';
@@ -85,6 +86,9 @@ const App: React.FC = () => {
   const [isDownloadModalOpen, setIsDownloadModalOpen] = React.useState(false);
   const [pendingDownloadFile, setPendingDownloadFile] = React.useState<File | null>(null);
   const [isProcessingDownload, setIsProcessingDownload] = React.useState(false);
+
+  // Camera Modal State
+  const [isCameraModalOpen, setIsCameraModalOpen] = React.useState(false);
 
   // State for Generator and Video views (which aren't in the EditorContext)
   const [isGenerating, setIsGenerating] = React.useState<boolean>(false);
@@ -485,6 +489,9 @@ const App: React.FC = () => {
             setError(null);
             setActiveTab('gallery');
         }}
+        onCameraClick={() => {
+            setIsCameraModalOpen(true);
+        }}
     />;
   };
   
@@ -559,6 +566,11 @@ const App: React.FC = () => {
         onClose={() => { setIsDownloadModalOpen(false); setPendingDownloadFile(null); }} 
         onConfirm={handleDownloadConfirm}
         isProcessing={isProcessingDownload}
+      />
+      <CameraModal 
+        isOpen={isCameraModalOpen} 
+        onClose={() => setIsCameraModalOpen(false)}
+        onCapture={(file) => handleUploadAndNavigate(file, 'erase')}
       />
       <Tooltip id="app-tooltip" className="app-tooltip" />
       

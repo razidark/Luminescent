@@ -1,3 +1,4 @@
+
 # Luminescent
 
 **Luminescent** is a next-generation, web-based creative suite powered by Google's Gemini and Imagen models. It merges professional-grade photo editing capabilities with state-of-the-art Generative AI, allowing users to edit, transform, and create visual media through a unified, glassmorphic interface.
@@ -20,10 +21,12 @@
 *   **Sketch-to-Image**: Turn rough drawings into polished artwork using control-guided generation.
 *   **Magic Merge**: Intelligently blend two images using semantic understanding.
 *   **AI Focus**: Apply realistic depth-of-field and bokeh effects.
+*   **AI Inspector**: Get a deep technical breakdown of any image (lighting, composition, style) and a reverse-engineered prompt using Gemini Vision.
 
 ### Live & Multimodal
 *   **Gemini Live**: Real-time, low-latency voice interaction with the AI assistant using `gemini-2.5-flash-native-audio-preview`.
 *   **Multimodal Chat**: Analyze images, videos, and audio files within a chat interface. Supports text-to-speech.
+*   **Camera Integration**: Capture photos directly within the app using the device camera, supporting front/rear switching on mobile.
 
 ## 🏗 Architecture
 

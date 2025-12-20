@@ -15,6 +15,8 @@ Luminescent is a next-generation, client-side heavy application that leverages p
 *   `components/`: Reusable UI components.
     *   `*Panel.tsx`: Tool-specific control panels (e.g., `ErasePanel`, `FilterPanel`).
     *   `*View.tsx`: Main workspace views (e.g., `EditorView`, `GeneratorView`).
+    *   `CameraModal.tsx`: Device camera integration logic.
+    *   `ImageInspectorModal.tsx`: AI analysis UI.
 *   `contexts/`: Global state providers.
     *   `EditorContext`: The brain of the app. Manages the current image, active tool state, and coordinates AI operations.
     *   `LanguageContext`: Handles internationalization.
@@ -42,7 +44,7 @@ The editor revolves around the `EditorContext` and `EditorView`.
 This layer abstracts the `@google/genai` SDK. It is responsible for:
 *   **Model Routing**: Choosing the right model for the task.
     *   `gemini-2.5-flash-image`: Fast edits, filters, basic generation.
-    *   `gemini-3-pro-image-preview`: High-fidelity generation, upscaling, text rendering (Cardify).
+    *   `gemini-3-pro-image-preview`: High-fidelity generation, upscaling, text rendering (Cardify), and Search Grounding.
     *   `veo-3.1`: Video generation.
 *   **Error Handling**: Implements exponential backoff for rate limits (429) and handles safety blocks.
 *   **Response Parsing**: Extracts image blobs or text from the complex Gemini response structure.
@@ -55,11 +57,17 @@ This hook manages the real-time, low-latency voice interaction.
 *   **Stream Handling**: Uses `ScriptProcessorNode` to buffer and process raw audio data for transmission.
 *   **Gapless Playback**: Manages a playback scheduling queue (`nextStartTime`) to ensure audio chunks played back sequentially without gaps or jitter.
 
-### 4. Data Persistence & Performance
+### 4. Device Integration
+*   **Camera**: `CameraModal.tsx` utilizes `navigator.mediaDevices.getUserMedia` to access video streams. It handles stream cleanup and supports `facingMode` switching for mobile devices.
+*   **Sharing**: Uses the native `navigator.share` API where available for system-level sharing dialogs.
+
+### 5. Multimodal Analysis (Inspector)
+*   **Inspector**: `ImageInspectorModal` sends the current image to `gemini-2.5-flash` with a specific JSON schema to extract structured metadata (composition, lighting, style) and a reverse-engineered prompt, enabling users to learn how to recreate styles.
+
+### 6. Data Persistence & Performance
 *   **IndexedDB**: To bypass LocalStorage size limits (usually 5MB), we use IndexedDB to store the full editing history and gallery creations (which can be large image/video blobs).
 *   **Session Recovery**: On load, the app rehydrates the state from IndexedDB, allowing users to refresh the page without losing their work.
 
 ## 🎨 Theme Engine
 The `ThemeContext` uses CSS Variables to enable dynamic theming.
 *   The "Rainbow" theme uses a `requestAnimationFrame` loop to cycle HSL values, creating a smooth RGB effect on borders, text gradients, and accents.
-

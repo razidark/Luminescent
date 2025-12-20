@@ -7,7 +7,7 @@ import React, { memo, useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import Spinner from './Spinner';
 import GeneratePanel from './GeneratePanel';
-import { GenerateIcon, EditIcon, DownloadIcon, SaveIcon } from './icons';
+import { GenerateIcon, EditIcon, DownloadIcon, SaveIcon, CopyIcon } from './icons';
 import { dataURLtoFile } from '../utils/helpers';
 
 interface GeneratorViewProps {
@@ -59,6 +59,11 @@ const GeneratorView: React.FC<GeneratorViewProps> = ({
         });
     };
 
+    const handleCopyPrompt = () => {
+        navigator.clipboard.writeText(prompt);
+        alert(t('copied'));
+    };
+
     return (
         <>
             <div className="w-full max-w-6xl mx-auto flex flex-col items-center gap-6 animate-fade-in">
@@ -86,6 +91,14 @@ const GeneratorView: React.FC<GeneratorViewProps> = ({
                                             disabled={savedStates[index]}
                                         >
                                             <SaveIcon className="w-8 h-8" />
+                                        </button>
+                                        <button
+                                            onClick={handleCopyPrompt}
+                                            data-tooltip-id="app-tooltip"
+                                            data-tooltip-content={t('copyToClipboard')}
+                                            className="p-3 bg-white/10 text-gray-200 rounded-full transition-colors hover:bg-theme-accent-hover"
+                                        >
+                                            <CopyIcon className="w-8 h-8" />
                                         </button>
                                         <button
                                             onClick={() => onSelectForEditing(imgSrc)}
