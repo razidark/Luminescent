@@ -26,6 +26,26 @@ interface ChatViewProps {
     onApplyPrompt?: (prompt: string) => void;
 }
 
+// FIX: Added manual PCM decoding function to fix broken native decodeAudioData usage for raw PCM streams.
+async function decodeAudioDataManual(
+  data: Uint8Array,
+  ctx: AudioContext,
+  sampleRate: number,
+  numChannels: number,
+): Promise<AudioBuffer> {
+  const dataInt16 = new Int16Array(data.buffer);
+  const frameCount = dataInt16.length / numChannels;
+  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelData = buffer.getChannelData(channel);
+    for (let i = 0; i < frameCount; i++) {
+      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+    }
+  }
+  return buffer;
+}
+
 const MarkdownRenderer: React.FC<{ text: string }> = React.memo(({ text }) => {
     const elements: React.ReactNode[] = [];
     const parts = text.split(/```(\w*)\n([\s\S]*?)```/g);
@@ -219,13 +239,15 @@ const ChatView: React.FC<ChatViewProps> = ({ onEditImage, onApplyPrompt }) => {
         setSmartReplies([]);
     };
 
+    // FIX: Updated handleTTS to use the manual PCM decoding logic as required by the Gemini API.
     const handleTTS = async (text: string) => {
         try {
-            const audioBuffer = await generateSpeech(text);
-            if (!ttsAudioContextRef.current) ttsAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const pcmData = await generateSpeech(text);
+            if (!ttsAudioContextRef.current) ttsAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
             const ctx = ttsAudioContextRef.current;
             if (ctx.state === 'suspended') await ctx.resume();
-            const buffer = await ctx.decodeAudioData(audioBuffer);
+            
+            const buffer = await decodeAudioDataManual(pcmData, ctx, 24000, 1);
             const source = ctx.createBufferSource();
             source.buffer = buffer; source.connect(ctx.destination); source.start();
         } catch (e) { console.error(e); }
@@ -292,10 +314,35 @@ const ChatView: React.FC<ChatViewProps> = ({ onEditImage, onApplyPrompt }) => {
                                                 </div>
                                             )}
                                             {msg.isThinking ? <div className="flex items-center gap-2 text-gray-500"><Spinner /> <span className="text-sm animate-pulse">Thinking...</span></div> : <div className="prose dark:prose-invert text-sm leading-relaxed break-words"><MarkdownRenderer text={msg.text} /></div>}
+                                            {/* Smart Replies and Grounding Links */}
+                                            {msg.grounding && msg.grounding.groundingChunks && (
+                                                <div className="mt-4 pt-2 border-t border-gray-100 dark:border-gray-700">
+                                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Sources</p>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {msg.grounding.groundingChunks.map((chunk: any, idx: number) => chunk.web && (
+                                                            <a key={idx} href={chunk.web.uri} target="_blank" rel="noopener noreferrer" className="px-2 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 text-[10px] font-bold rounded-lg hover:underline truncate max-w-[200px]">
+                                                                {chunk.web.title || chunk.web.uri}
+                                                            </a>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
+                                        {msg.role === 'model' && !msg.isThinking && (
+                                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => handleTTS(msg.text)} className="p-1.5 text-gray-400 hover:text-theme-accent transition-colors"><SpeakerLoudIcon className="w-4 h-4"/></button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))}
+                            {smartReplies.length > 0 && (
+                                <div className="flex flex-wrap gap-2 justify-center py-4">
+                                    {smartReplies.map((reply, i) => (
+                                        <button key={i} onClick={() => handleSendMessage(reply)} className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs font-bold text-gray-700 dark:text-gray-300 hover:border-theme-accent hover:text-theme-accent transition-all shadow-sm active:scale-95">{reply}</button>
+                                    ))}
+                                </div>
+                            )}
                             <div ref={messagesEndRef} />
                         </div>
                         <div className="p-4 bg-white/60 dark:bg-black/60 border-t border-gray-200 dark:border-gray-700 backdrop-blur-md animate-fade-in">
