@@ -52,11 +52,11 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeTab, setActiveTab }) => {
   };
 
   return (
-    <nav className="w-full relative z-20 px-4 animate-fade-in">
+    <nav className="w-full relative z-20 px-2 md:px-4 animate-fade-in">
         <div 
             ref={scrollRef}
             onWheel={handleWheel}
-            className="glass rounded-2xl p-2 flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth shadow-2xl border border-white/30 dark:border-white/10 backdrop-blur-xl relative"
+            className="glass rounded-2xl p-2 flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth shadow-xl border border-white/40 dark:border-white/10 backdrop-blur-2xl relative"
             style={{
                 maskImage: 'linear-gradient(to right, transparent 0%, black 40px, black calc(100% - 40px), transparent 100%)',
                 WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 40px, black calc(100% - 40px), transparent 100%)'
@@ -70,35 +70,35 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeTab, setActiveTab }) => {
                     onClick={() => setActiveTab(tab.id)}
                     data-tooltip-id="app-tooltip"
                     data-tooltip-content={tab.name}
-                    className={`flex flex-col items-center justify-center gap-1.5 px-3 py-3 rounded-xl transition-all duration-500 ease-out group min-w-[85px] relative overflow-hidden ${
+                    className={`flex flex-col items-center justify-center gap-1.5 px-3 py-3 rounded-xl transition-all duration-300 ease-out group min-w-[85px] relative overflow-hidden ${
                         activeTab === tab.id 
-                        ? 'bg-white dark:bg-white/10 shadow-lg scale-105 border border-white/50 dark:border-white/20' 
-                        : 'hover:bg-white/40 dark:hover:bg-white/5 hover:scale-100 opacity-70 hover:opacity-100'
+                        ? 'bg-white dark:bg-white/10 shadow-lg scale-105 border border-white/60 dark:border-white/20' 
+                        : 'hover:bg-white/50 dark:hover:bg-white/5 opacity-75 hover:opacity-100'
                     }`}
                 >
                     {activeTab === tab.id && (
-                         <div className="absolute inset-0 bg-gradient-to-br from-theme-accent/20 to-transparent pointer-events-none animate-pulse" />
+                         <div className="absolute inset-0 bg-gradient-to-br from-theme-accent/15 to-transparent pointer-events-none animate-pulse" />
                     )}
                     
-                    <div className={`w-10 h-10 transition-all duration-500 ${
+                    <div className={`w-9 h-9 transition-all duration-300 ${
                         activeTab === tab.id 
-                        ? 'text-theme-accent scale-110 drop-shadow-[0_0_8px_rgba(var(--theme-accent),0.4)]' 
-                        : 'text-gray-600 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white group-hover:scale-110'
+                        ? 'text-theme-accent scale-110 drop-shadow-[0_0_12px_rgba(var(--theme-accent),0.5)]' 
+                        : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white group-hover:scale-105'
                     }`}>
                         {React.isValidElement(tab.icon) 
                             ? React.cloneElement(tab.icon as React.ReactElement<any>, { className: 'w-full h-full' }) 
                             : tab.icon}
                     </div>
-                    <span className={`text-[10px] font-black tracking-tighter uppercase leading-none transition-colors ${
+                    <span className={`text-[9px] font-black tracking-tighter uppercase leading-none transition-colors ${
                         activeTab === tab.id 
-                        ? 'text-theme-gradient' 
-                        : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-800 dark:group-hover:text-gray-200'
+                        ? 'text-theme-accent' 
+                        : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-700 dark:group-hover:text-gray-300'
                     }`}>
                         {tab.name}
                     </span>
                     
                     {activeTab === tab.id && (
-                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-theme-gradient rounded-t-full shadow-[0_0_12px_rgba(var(--theme-accent),0.6)]" />
+                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-theme-gradient rounded-t-full shadow-[0_0_15px_rgba(var(--theme-accent),0.8)]" />
                     )}
                 </button>
             ))}

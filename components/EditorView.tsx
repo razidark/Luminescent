@@ -336,7 +336,7 @@ const EditorView: React.FC<EditorViewProps> = ({
 
     return (
         <div className="flex flex-col md:flex-row h-full w-full gap-4 lg:gap-6 items-stretch animate-fade-in">
-            <div className="flex-grow relative bg-gray-100 dark:bg-black/20 rounded-3xl overflow-hidden shadow-inner border border-white/20 dark:border-white/10 checkerboard-bg group min-h-[50vh]">
+            <div className="flex-grow relative bg-slate-50 dark:bg-black/20 rounded-3xl overflow-hidden shadow-inner border border-black/5 dark:border-white/10 checkerboard-bg group min-h-[50vh]">
                 {currentImageUrl && (
                     <ZoomPanWrapper
                         ref={zoomPanRef}
@@ -396,84 +396,84 @@ const EditorView: React.FC<EditorViewProps> = ({
                     </ZoomPanWrapper>
                 )}
 
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 p-2 bg-white/80 dark:bg-black/60 backdrop-blur-md rounded-2xl shadow-lg border border-white/20 z-30 transition-all duration-500 opacity-0 group-hover:opacity-100 group-hover:translate-y-0 translate-y-4">
-                    <button onClick={handleUndo} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors active:scale-90" data-tooltip-id="app-tooltip" data-tooltip-content={t('undo')}>
-                        <UndoIcon className="w-6 h-6" />
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 md:gap-2 p-2 bg-white/90 dark:bg-black/70 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/40 dark:border-white/10 z-30 transition-all duration-500 opacity-0 group-hover:opacity-100 group-hover:translate-y-0 translate-y-4">
+                    <button onClick={handleUndo} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors active:scale-90" data-tooltip-id="app-tooltip" data-tooltip-content={t('undo')}>
+                        <UndoIcon className="w-5 h-5 md:w-6 md:h-6" />
                     </button>
-                    <button onClick={handleRedo} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors active:scale-90" data-tooltip-id="app-tooltip" data-tooltip-content={t('redo')}>
-                        <RedoIcon className="w-6 h-6" />
+                    <button onClick={handleRedo} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors active:scale-90" data-tooltip-id="app-tooltip" data-tooltip-content={t('redo')}>
+                        <RedoIcon className="w-5 h-5 md:w-6 md:h-6" />
                     </button>
-                    <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
+                    <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
                     <button 
                         onClick={() => setIsPanMode(!isPanMode)} 
-                        className={`p-2 rounded-full transition-colors active:scale-90 ${isPanMode ? 'bg-theme-accent text-white' : 'hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200'}`}
+                        className={`p-2 rounded-full transition-colors active:scale-90 ${isPanMode ? 'bg-theme-accent text-white' : 'hover:bg-black/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200'}`}
                         data-tooltip-id="app-tooltip" 
                         data-tooltip-content={t('shortcutsPan')}
                     >
-                        <HandIcon className="w-6 h-6" />
+                        <HandIcon className="w-5 h-5 md:w-6 md:h-6" />
                     </button>
-                    <button onClick={() => zoomPanRef.current?.zoomOut()} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors active:scale-90" data-tooltip-id="app-tooltip" data-tooltip-content={t('zoomOut')}>
-                        <ZoomOutIcon className="w-6 h-6" />
+                    <button onClick={() => zoomPanRef.current?.zoomOut()} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors active:scale-90" data-tooltip-id="app-tooltip" data-tooltip-content={t('zoomOut')}>
+                        <ZoomOutIcon className="w-5 h-5 md:w-6 md:h-6" />
                     </button>
-                    <button onClick={() => zoomPanRef.current?.reset()} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors active:scale-90" data-tooltip-id="app-tooltip" data-tooltip-content={t('fitToScreen')}>
-                        <FitToScreenIcon className="w-6 h-6" />
+                    <button onClick={() => zoomPanRef.current?.reset()} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors active:scale-90" data-tooltip-id="app-tooltip" data-tooltip-content={t('fitToScreen')}>
+                        <FitToScreenIcon className="w-5 h-5 md:w-6 md:h-6" />
                     </button>
-                    <button onClick={() => zoomPanRef.current?.zoomIn()} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors active:scale-90" data-tooltip-id="app-tooltip" data-tooltip-content={t('zoomIn')}>
-                        <ZoomInIcon className="w-6 h-6" />
+                    <button onClick={() => zoomPanRef.current?.zoomIn()} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors active:scale-90" data-tooltip-id="app-tooltip" data-tooltip-content={t('zoomIn')}>
+                        <ZoomInIcon className="w-5 h-5 md:w-6 md:h-6" />
                     </button>
-                    <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" />
-                    <button onClick={() => setIsCompareVisible(!isCompareVisible)} className={`p-2 rounded-full transition-colors active:scale-90 ${isCompareVisible ? 'bg-theme-accent text-white' : 'hover:bg-gray-200 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200'}`} data-tooltip-id="app-tooltip" data-tooltip-content={t('compareWithOriginal')}>
-                        <EyeIcon className="w-6 h-6" />
+                    <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
+                    <button onClick={() => setIsCompareVisible(!isCompareVisible)} className={`p-2 rounded-full transition-colors active:scale-90 ${isCompareVisible ? 'bg-theme-accent text-white' : 'hover:bg-black/5 dark:hover:bg-white/10 text-gray-700 dark:text-gray-200'}`} data-tooltip-id="app-tooltip" data-tooltip-content={t('compareWithOriginal')}>
+                        <EyeIcon className="w-5 h-5 md:w-6 md:h-6" />
                     </button>
-                    <button onClick={() => setIsInspectorOpen(true)} className="p-2 hover:bg-gray-200 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors active:scale-90" data-tooltip-id="app-tooltip" data-tooltip-content={t('inspectorTitle')}>
-                        <InfoIcon className="w-6 h-6" />
+                    <button onClick={() => setIsInspectorOpen(true)} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full text-gray-700 dark:text-gray-200 transition-colors active:scale-90" data-tooltip-id="app-tooltip" data-tooltip-content={t('inspectorTitle')}>
+                        <InfoIcon className="w-5 h-5 md:w-6 md:h-6" />
                     </button>
                 </div>
 
                 {editor.isLoading && (
-                    <div className="absolute inset-0 bg-black/60 z-50 flex flex-col items-center justify-center backdrop-blur-sm animate-fade-in">
+                    <div className="absolute inset-0 bg-black/70 z-50 flex flex-col items-center justify-center backdrop-blur-md animate-fade-in">
                         <Spinner />
-                        <p className="text-white mt-4 font-semibold text-lg drop-shadow-md animate-pulse">{editor.loadingMessage}</p>
+                        <p className="text-white mt-4 font-black text-lg drop-shadow-lg animate-pulse uppercase tracking-widest">{editor.loadingMessage}</p>
                     </div>
                 )}
             </div>
 
             {!isPanelCollapsed && (
-                <div className="w-full md:w-80 lg:w-96 flex-shrink-0 glass-panel flex flex-col overflow-hidden transition-all duration-500 h-2/5 md:h-auto animate-slide-in-right">
-                    <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+                <div className="w-full md:w-80 lg:w-[400px] flex-shrink-0 glass-panel flex flex-col overflow-hidden transition-all duration-500 h-2/5 md:h-auto animate-slide-in-right">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar relative bg-white/30 dark:bg-transparent">
                         <div key={activeTab} className="h-full animate-fade-in">
                              {renderPanel()}
                         </div>
                     </div>
                     
-                    <div className="p-4 border-t border-gray-200/50 dark:border-white/10 bg-white/50 dark:bg-black/20 flex flex-col gap-2 backdrop-blur-md">
-                        <button onClick={handleReset} className="w-full py-3 rounded-xl font-semibold text-gray-600 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 dark:hover:text-red-400 transition-all active:scale-95 text-sm flex items-center justify-center gap-2">
-                            <ResetIcon className="w-5 h-5" /> {t('resetAllChanges')}
+                    <div className="p-4 border-t border-black/5 dark:border-white/10 bg-white/80 dark:bg-black/40 flex flex-col gap-2 backdrop-blur-3xl shadow-2xl">
+                        <button onClick={handleReset} className="w-full py-2.5 rounded-xl font-bold text-gray-500 dark:text-gray-400 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400 transition-all active:scale-95 text-xs flex items-center justify-center gap-2 uppercase tracking-wide">
+                            <ResetIcon className="w-4 h-4" /> {t('resetAllChanges')}
                         </button>
                         <div className="grid grid-cols-2 gap-2">
                             <div className="flex gap-2 w-full">
-                                <button onClick={() => handleDownload()} className="flex-1 py-3 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 font-bold rounded-xl hover:bg-gray-300 dark:hover:bg-white/20 transition-all active:scale-95 flex items-center justify-center gap-2 text-sm">
-                                    <DownloadIcon className="w-5 h-5" /> {t('download')}
+                                <button onClick={() => handleDownload()} className="flex-1 py-3 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-gray-200 font-black rounded-xl hover:bg-gray-200 dark:hover:bg-white/15 transition-all active:scale-95 flex items-center justify-center gap-2 text-xs uppercase tracking-wider">
+                                    <DownloadIcon className="w-4 h-4" /> {t('download')}
                                 </button>
-                                <button onClick={handleShare} className="py-3 px-3 bg-gray-200 dark:bg-white/10 text-gray-800 dark:text-gray-200 font-bold rounded-xl hover:bg-gray-300 dark:hover:bg-white/20 transition-all active:scale-95 flex items-center justify-center gap-2" title={t('share')}>
-                                    <ShareIcon className="w-5 h-5" />
+                                <button onClick={handleShare} className="py-3 px-4 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-gray-200 font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-white/15 transition-all active:scale-95 flex items-center justify-center" title={t('share')}>
+                                    <ShareIcon className="w-4 h-4" />
                                 </button>
                             </div>
                             <button 
                                 onClick={onSaveToCreations} 
                                 disabled={isSaving || isSavingToCreations || isSaved} 
-                                className={`py-3 font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm active:scale-95 disabled:opacity-50 disabled:transform-none ${
+                                className={`py-3 font-black rounded-xl shadow-xl transition-all flex items-center justify-center gap-2 text-xs uppercase tracking-wider active:scale-95 disabled:opacity-50 disabled:transform-none ${
                                     isSaved 
-                                    ? 'bg-green-500 text-white shadow-green-500/30' 
-                                    : 'bg-theme-gradient text-white shadow-theme-accent/20 hover:shadow-xl hover:shadow-theme-accent/40 hover:scale-[1.02]'
+                                    ? 'bg-green-500 text-white shadow-green-500/40' 
+                                    : 'bg-theme-gradient text-white shadow-theme-accent/30 hover:shadow-theme-accent/50 hover:scale-[1.02] hover:brightness-110'
                                 }`}
                             >
                                 {isSaving || isSavingToCreations ? (
                                     <Spinner />
                                 ) : isSaved ? (
-                                    <CheckCircleIcon className="w-5 h-5" />
+                                    <CheckCircleIcon className="w-4 h-4" />
                                 ) : (
-                                    <SaveIcon className="w-5 h-5" />
+                                    <SaveIcon className="w-4 h-4" />
                                 )}
                                 {isSaved ? t('gallerySaved') : t('saveToCreations')}
                             </button>
