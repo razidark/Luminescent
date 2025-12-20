@@ -74,37 +74,33 @@ const Header: React.FC<HeaderProps> = ({
 }) => {
   const { t } = useLanguage();
   const [isLoggedIn, setIsLoggedIn] = React.useState(false);
-  const [hasBridge, setHasBridge] = React.useState(false);
 
+  // Check initial key status
   React.useEffect(() => {
       const checkKey = async () => {
-          const bridgeExists = typeof (window as any).aistudio !== 'undefined';
-          setHasBridge(bridgeExists);
-          
-          if (bridgeExists && (window as any).aistudio.hasSelectedApiKey) {
-              try {
-                  const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-                  setIsLoggedIn(hasKey);
-              } catch (e) {
-                  console.error("Error checking key", e);
-              }
-          } else {
-              const envKey = process.env.API_KEY;
-              setIsLoggedIn(!!(envKey && envKey !== "undefined" && envKey !== "null"));
+          if (typeof (window as any).aistudio !== 'undefined' && (window as any).aistudio.hasSelectedApiKey) {
+              const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+              setIsLoggedIn(hasKey);
           }
       };
       checkKey();
+      
+      // Set up interval to poll status (optional, bridge usually handles it)
+      const interval = setInterval(checkKey, 5000);
+      return () => clearInterval(interval);
   }, []);
 
   const handleLoginToggle = async () => {
-      if (hasBridge && (window as any).aistudio.openSelectKey) {
+      if (typeof (window as any).aistudio !== 'undefined' && (window as any).aistudio.openSelectKey) {
           try {
               await (window as any).aistudio.openSelectKey();
+              // As per guidelines, assume success immediately to mitigate race conditions
               setIsLoggedIn(true);
           } catch (e) {
-              console.error("Login failed", e);
+              console.error("Key selection failed", e);
           }
       } else {
+          // Fallback for non-bridge environments
           window.open('https://ai.google.dev/gemini-api/docs/billing', '_blank');
       }
   };
@@ -175,7 +171,7 @@ const Header: React.FC<HeaderProps> = ({
             <div className="flex flex-col items-end">
                 <button
                     onClick={handleLoginToggle}
-                    className={`flex items-center gap-2.5 px-3 py-1.5 md:px-4 md:py-2 rounded-xl transition-all border ${isLoggedIn ? 'bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400 font-bold' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 shadow-sm hover:shadow-md hover:border-gray-400'} group relative overflow-hidden`}
+                    className={`flex items-center gap-2.5 px-3 py-1.5 md:px-4 md:py-2 rounded-xl transition-all border ${isLoggedIn ? 'bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400 font-bold' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 shadow-sm hover:shadow-md hover:border-gray-400'} group relative overflow-hidden active:scale-95`}
                 >
                     <div className="flex items-center gap-2">
                         <svg className="w-4 h-4" viewBox="0 0 24 24">

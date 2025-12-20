@@ -91,8 +91,8 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Pr
         if (error.message?.includes("Requested entity was not found") || error.message?.includes("API_KEY_REQUIRED")) {
             if (typeof (window as any).aistudio !== 'undefined' && (window as any).aistudio.openSelectKey) {
                  await (window as any).aistudio.openSelectKey();
-                 // After key selection, attempt a single retry.
-                 return withRetry(fn, 1, delay); 
+                 // After key selection, we must assume the new key is available and retry once.
+                 return await fn(); 
             }
         }
 
@@ -105,31 +105,6 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Pr
         throw error;
     }
 }
-
-// FIX: Added _generateImageEdit helper to handle various image editing tasks.
-const _generateImageEdit = async (image: File, prompt: string, task: string, mask?: File): Promise<string> => {
-    return withRetry(async () => {
-        const ai = getAiClient();
-        const imagePart = await fileToGenerativePart(image);
-        const parts: Part[] = [imagePart];
-        
-        if (mask) {
-            const maskPart = await fileToGenerativePart(mask);
-            parts.push(maskPart);
-            parts.push({ text: `Task: ${task}. Use the provided mask to identify the area to modify. ${prompt ? `Description of change: ${prompt}` : 'Perform the edit seamlessly.'}` });
-        } else {
-            parts.push({ text: `Task: ${task}. Prompt: ${prompt}` });
-        }
-
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash-image",
-            contents: { parts },
-            config: { safetySettings }
-        });
-        
-        return handleApiResponse(response, task);
-    });
-};
 
 export const inspectImage = async (image: File): Promise<any> => {
     return withRetry(async () => {
@@ -178,7 +153,7 @@ export const enhancePrompt = async (originalPrompt: string): Promise<string> => 
         const ai = getAiClient();
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
-            contents: `Enhance this image generation prompt: "${originalPrompt}"`,
+            contents: `Enhance this image generation prompt for higher quality and artistic detail: "${originalPrompt}". Return only the enhanced text.`,
         });
         return response.text?.trim() || originalPrompt;
     });
@@ -238,44 +213,69 @@ export const generateVideo = async (prompt: string, image?: File): Promise<strin
     });
 };
 
-export const generateInpaintedImage = async (image: File, mask: File, prompt: string) => _generateImageEdit(image, prompt, 'inpainting', mask);
-export const generateRetouchImage = async (image: File, mask: File, prompt: string) => _generateImageEdit(image, prompt, 'retouch', mask);
-export const generateSelectiveAdjustment = async (image: File, mask: File, prompt: string) => _generateImageEdit(image, prompt, 'selective adjust', mask);
-
-// FIX: Completed truncated functions and added all missing AI service exports.
-
-export const generateFilteredImage = async (image: File, filterPrompt: string) => _generateImageEdit(image, filterPrompt, 'filter');
-
-export const generateLuckyFilterImage = async (image: File) => {
-    return _generateImageEdit(image, "Apply a random, creative, and aesthetically pleasing professional photo filter that complements the content of the image.", "lucky filter");
+export const generateInpaintedImage = async (image: File, mask: File, prompt: string) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const maskPart = await fileToGenerativePart(mask);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image",
+            contents: {
+                parts: [
+                    imagePart, 
+                    maskPart, 
+                    { text: `Modify the area indicated by the mask. ${prompt ? `Follow this instruction: ${prompt}` : 'Remove any objects or imperfections in this area and fill it seamlessly based on the surrounding scene.'}` }
+                ]
+            },
+            config: { safetySettings }
+        });
+        return handleApiResponse(response, 'inpainting');
+    });
 };
 
-export const generateAdjustedImage = async (image: File, adjustmentPrompt: string) => _generateImageEdit(image, adjustmentPrompt, 'adjustment');
-
-export const generateExpandedImage = async (image: File, prompt: string) => _generateImageEdit(image, prompt, 'outpainting');
-
-export const generateUpscaledImage = async (image: File, scale: number) => _generateImageEdit(image, `Upscale this image by ${scale}x and enhance details.`, 'upscale');
-
-export const generateEnhancedImage = async (image: File, intensity: string) => _generateImageEdit(image, `Apply ${intensity} detail and clarity enhancement.`, 'enhance');
-
-export const generateRestoredImage = async (image: File, prompt: string) => _generateImageEdit(image, prompt, 'restoration');
-
-export const generateRemovedBackgroundImage = async (image: File) => _generateImageEdit(image, "Remove the background completely and leave only the main subject on a transparent background.", 'background removal');
-
-export const generateReplacedBackgroundImage = async (image: File, prompt: string) => _generateImageEdit(image, prompt, 'background replacement');
-
-export const generateProductBackgroundImage = async (image: File, name: string, customPrompt?: string) => {
-    const prompt = customPrompt || `Place this product on a professional ${name} background in a studio lighting setup.`;
-    return _generateImageEdit(image, prompt, 'product background');
+export const generateRetouchImage = async (image: File, mask: File, prompt: string) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const maskPart = await fileToGenerativePart(mask);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image",
+            contents: {
+                parts: [
+                    imagePart, 
+                    maskPart, 
+                    { text: `Perform a professional retouching on the selected area: ${prompt}` }
+                ]
+            },
+            config: { safetySettings }
+        });
+        return handleApiResponse(response, 'retouch');
+    });
 };
 
-export const generateProductShadowImage = async (image: File) => _generateImageEdit(image, "Add a realistic, soft contact shadow underneath the product to ground it in the scene.", 'product shadow');
+export const generateSelectiveAdjustment = async (image: File, mask: File, prompt: string) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const maskPart = await fileToGenerativePart(mask);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image",
+            contents: {
+                parts: [
+                    imagePart, 
+                    maskPart, 
+                    { text: `Apply this selective adjustment to the masked area: ${prompt}` }
+                ]
+            },
+            config: { safetySettings }
+        });
+        return handleApiResponse(response, 'selective adjust');
+    });
+};
 
-export const generateAddedProductImage = async (image: File, mask: File, prompt: string) => _generateImageEdit(image, prompt, 'add object', mask);
+// FIX: Added missing exported functions required by AdjustmentPanel, CardifyPanel, and EditorContext
 
-export const generateCardImage = async (image: File, cardPrompt: string) => _generateImageEdit(image, cardPrompt, 'cardify');
-
-export const generateAutoAdjustments = async (image: File): Promise<any> => {
+export const generateAutoAdjustments = async (image: File) => {
     return withRetry(async () => {
         const ai = getAiClient();
         const imagePart = await fileToGenerativePart(image);
@@ -284,7 +284,7 @@ export const generateAutoAdjustments = async (image: File): Promise<any> => {
             contents: {
                 parts: [
                     imagePart,
-                    { text: "Suggest professional adjustments for brightness, contrast, saturation, highlights, shadows, vibrance, temperature, and sharpness. Return a JSON object with values between -100 and 100." }
+                    { text: "Analyze this image and suggest professional photo adjustments. Return JSON with values from -100 to 100 for: brightness, contrast, saturation, highlights, shadows, vibrance, temperature, sharpness." }
                 ]
             },
             config: {
@@ -299,7 +299,7 @@ export const generateAutoAdjustments = async (image: File): Promise<any> => {
                         shadows: { type: Type.NUMBER },
                         vibrance: { type: Type.NUMBER },
                         temperature: { type: Type.NUMBER },
-                        sharpness: { type: Type.NUMBER },
+                        sharpness: { type: Type.NUMBER }
                     }
                 }
             }
@@ -308,28 +308,220 @@ export const generateAutoAdjustments = async (image: File): Promise<any> => {
     });
 };
 
-export const generateLuckyAdjustment = async (image: File): Promise<string> => {
+export const generateLuckyAdjustment = async (image: File) => {
     return withRetry(async () => {
         const ai = getAiClient();
         const imagePart = await fileToGenerativePart(image);
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
-            contents: { parts: [imagePart, { text: "Suggest a creative photo adjustment in one sentence." }] }
+            contents: {
+                parts: [
+                    imagePart,
+                    { text: "Suggest a single, creative, and highly impactful 'feeling lucky' AI adjustment for this photo. Describe it in one clear sentence that can be used as a prompt for an image editing AI." }
+                ]
+            }
         });
-        return response.text?.trim() || "Enhance the image.";
+        return response.text?.trim() || "Enhance the colors and lighting for a professional look.";
     });
 };
 
-export const generateCardDetails = async (image: File, cardType: string): Promise<any> => {
+export const generateCardDetails = async (image: File, cardType: string) => {
     return withRetry(async () => {
         const ai = getAiClient();
         const imagePart = await fileToGenerativePart(image);
         const response = await ai.models.generateContent({
-            model: "gemini-3-flash-preview",
-            contents: { parts: [imagePart, { text: `Generate creative details for a ${cardType} trading card based on this image. Return a JSON object with relevant fields.` }] },
+            model: "gemini-3-pro-preview",
+            contents: {
+                parts: [
+                    imagePart,
+                    { text: `Create creative trading card details for this image as a ${cardType} card. Return a JSON object with appropriate fields (name, description, hp, atk, def, etc.).` }
+                ]
+            },
             config: { responseMimeType: "application/json" }
         });
         return JSON.parse(response.text || "{}");
+    });
+};
+
+export const generateFilteredImage = async (image: File, filterPrompt: string) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image",
+            contents: {
+                parts: [imagePart, { text: `Apply this artistic filter to the image: ${filterPrompt}.` }]
+            },
+            config: { safetySettings }
+        });
+        return handleApiResponse(response, 'filter');
+    });
+};
+
+export const generateLuckyFilterImage = async (image: File) => {
+    const luckyPrompt = await generateLuckyAdjustment(image);
+    return generateFilteredImage(image, luckyPrompt);
+};
+
+export const generateAdjustedImage = async (image: File, adjustmentPrompt: string) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image",
+            contents: {
+                parts: [imagePart, { text: `Apply these professional photo adjustments: ${adjustmentPrompt}.` }]
+            },
+            config: { safetySettings }
+        });
+        return handleApiResponse(response, 'adjustment');
+    });
+};
+
+export const generateExpandedImage = async (image: File, expansionPrompt: string) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image",
+            contents: {
+                parts: [imagePart, { text: `Expand the canvas of this image. Fill new areas seamlessly based on: ${expansionPrompt || 'surrounding content'}.` }]
+            },
+            config: { safetySettings }
+        });
+        return handleApiResponse(response, 'expansion');
+    });
+};
+
+export const generateUpscaledImage = async (image: File, scale: number) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const response = await ai.models.generateContent({
+            model: "gemini-3-pro-image-preview",
+            contents: {
+                parts: [imagePart, { text: `Upscale and enhance this image ${scale}x while preserving original content perfectly.` }]
+            },
+            config: { 
+                imageConfig: { imageSize: scale >= 4 ? "4K" : "2K" },
+                safetySettings 
+            }
+        });
+        return handleApiResponse(response, 'upscale');
+    });
+};
+
+export const generateEnhancedImage = async (image: File, intensity: string) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image",
+            contents: {
+                parts: [imagePart, { text: `Professionally enhance this image with ${intensity} intensity.` }]
+            },
+            config: { safetySettings }
+        });
+        return handleApiResponse(response, 'enhance');
+    });
+};
+
+export const generateRestoredImage = async (image: File, restorationPrompt: string) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image",
+            contents: {
+                parts: [imagePart, { text: `Restore this old photo: ${restorationPrompt}.` }]
+            },
+            config: { safetySettings }
+        });
+        return handleApiResponse(response, 'restoration');
+    });
+};
+
+export const generateRemovedBackgroundImage = async (image: File) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image",
+            contents: {
+                parts: [imagePart, { text: "Remove the background from this image, leaving only the main subject." }]
+            },
+            config: { safetySettings }
+        });
+        return handleApiResponse(response, 'background removal');
+    });
+};
+
+export const generateReplacedBackgroundImage = async (image: File, backgroundPrompt: string) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image",
+            contents: {
+                parts: [imagePart, { text: `Replace the background with: ${backgroundPrompt}.` }]
+            },
+            config: { safetySettings }
+        });
+        return handleApiResponse(response, 'background replacement');
+    });
+};
+
+export const generateProductBackgroundImage = async (image: File, name: string, customPrompt?: string) => {
+    const prompt = customPrompt || `a professional studio product shot with a ${name} theme.`;
+    return generateReplacedBackgroundImage(image, prompt);
+};
+
+export const generateProductShadowImage = async (image: File) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image",
+            contents: {
+                parts: [imagePart, { text: "Add a realistic contact shadow underneath the subject." }]
+            },
+            config: { safetySettings }
+        });
+        return handleApiResponse(response, 'shadow');
+    });
+};
+
+export const generateAddedProductImage = async (image: File, mask: File, productPrompt: string) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const maskPart = await fileToGenerativePart(mask);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image",
+            contents: {
+                parts: [imagePart, maskPart, { text: `Add this object to the masked area: ${productPrompt}.` }]
+            },
+            config: { safetySettings }
+        });
+        return handleApiResponse(response, 'add object');
+    });
+};
+
+export const generateCardImage = async (image: File, cardPrompt: string) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const response = await ai.models.generateContent({
+            model: "gemini-3-pro-image-preview",
+            contents: {
+                parts: [imagePart, { text: cardPrompt }]
+            },
+            config: { 
+                imageConfig: { aspectRatio: "3:4" },
+                safetySettings 
+            }
+        });
+        return handleApiResponse(response, 'cardify');
     });
 };
 
@@ -338,9 +530,14 @@ export const generateMemeSuggestions = async (image: File): Promise<string[]> =>
         const ai = getAiClient();
         const imagePart = await fileToGenerativePart(image);
         const response = await ai.models.generateContent({
-            model: "gemini-3-flash-preview",
-            contents: { parts: [imagePart, { text: "Suggest 5 funny meme captions for this image. Return a JSON array of strings." }] },
-            config: { responseMimeType: "application/json" }
+            model: "gemini-3-pro-preview",
+            contents: {
+                parts: [imagePart, { text: "Generate 5 funny meme captions for this image. Return a JSON array of strings." }]
+            },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } }
+            }
         });
         return JSON.parse(response.text || "[]");
     });
@@ -352,16 +549,47 @@ export const generateColorPalette = async (image: File): Promise<string[]> => {
         const imagePart = await fileToGenerativePart(image);
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
-            contents: { parts: [imagePart, { text: "Extract 5 dominant hex colors from this image. Return a JSON array of strings." }] },
-            config: { responseMimeType: "application/json" }
+            contents: {
+                parts: [imagePart, { text: "Extract a 5-color hex palette from this image. Return a JSON array of strings." }]
+            },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } }
+            }
         });
         return JSON.parse(response.text || "[]");
     });
 };
 
-export const applyColorPalette = async (image: File, palette: string[], selectedColor: string) => _generateImageEdit(image, `Recolor the image using this palette: ${palette.join(', ')}. Emphasize ${selectedColor}.`, 'apply palette');
+export const applyColorPalette = async (image: File, palette: string[], selectedColor: string) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image",
+            contents: {
+                parts: [imagePart, { text: `Color grade this image using this palette: ${palette.join(', ')}, highlighting ${selectedColor}.` }]
+            },
+            config: { safetySettings }
+        });
+        return handleApiResponse(response, 'palette');
+    });
+};
 
-export const generateRecoloredImage = async (image: File, source: string, target: string, tolerance: number) => _generateImageEdit(image, `Change the color ${source} to ${target} with a tolerance of ${tolerance}%.`, 'recolor');
+export const generateRecoloredImage = async (image: File, sourceColor: string, targetColor: string, tolerance: number) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image",
+            contents: {
+                parts: [imagePart, { text: `Change the color ${sourceColor} to ${targetColor} with a tolerance of ${tolerance}.` }]
+            },
+            config: { safetySettings }
+        });
+        return handleApiResponse(response, 'recolor');
+    });
+};
 
 export const generateStyledImage = async (image: File, styleImage: File) => {
     return withRetry(async () => {
@@ -370,9 +598,12 @@ export const generateStyledImage = async (image: File, styleImage: File) => {
         const stylePart = await fileToGenerativePart(styleImage);
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash-image",
-            contents: { parts: [imagePart, stylePart, { text: "Apply the artistic style of the second image to the first image." }] }
+            contents: {
+                parts: [imagePart, stylePart, { text: "Apply the artistic style of the second image to the first image." }]
+            },
+            config: { safetySettings }
         });
-        return handleApiResponse(response, 'style transfer');
+        return handleApiResponse(response, 'style');
     });
 };
 
@@ -382,50 +613,72 @@ export const generateCaptions = async (image: File): Promise<{ captions: string[
         const imagePart = await fileToGenerativePart(image);
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
-            contents: { parts: [imagePart, { text: "Generate 3 descriptive captions for this image. Use Google Search to find relevant context if possible." }] },
-            config: { tools: [{ googleSearch: {} }] }
+            contents: {
+                parts: [imagePart, { text: "Generate a detailed description and 3 creative captions for this image using Google Search. Return JSON with 'description', 'captions' (array)." }]
+            },
+            config: {
+                tools: [{ googleSearch: {} }],
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        description: { type: Type.STRING },
+                        captions: { type: Type.ARRAY, items: { type: Type.STRING } }
+                    }
+                }
+            }
         });
+        const data = JSON.parse(response.text || "{}");
         return {
-            captions: [response.text || ""],
+            captions: data.captions || [],
             sources: response.candidates?.[0]?.groundingMetadata?.groundingChunks || []
         };
     });
 };
 
-export const generateImageVariations = async (image: File, creativity: string): Promise<string[]> => {
+export const generateImageVariations = async (image: File, creativity: 'low' | 'medium' | 'high'): Promise<string[]> => {
     return withRetry(async () => {
         const ai = getAiClient();
         const imagePart = await fileToGenerativePart(image);
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash-image",
-            contents: { parts: [imagePart, { text: `Generate 3 creative variations of this image with ${creativity} changes.` }] }
+            contents: {
+                parts: [imagePart, { text: `Generate a variation of this image with ${creativity} creativity level.` }]
+            },
+            config: { safetySettings }
         });
-        const result = handleApiResponse(response, 'variations');
-        return [result]; // Simplified for now as handleApiResponse returns one
+        return [handleApiResponse(response, 'variation')];
     });
 };
 
-export const generatePromptSuggestions = async (image: File, context: string): Promise<string[]> => {
+export const generatePromptSuggestions = async (image: File, context: 'add' | 'replace'): Promise<string[]> => {
     return withRetry(async () => {
         const ai = getAiClient();
         const imagePart = await fileToGenerativePart(image);
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
-            contents: { parts: [imagePart, { text: `Suggest 3 prompts for ${context === 'add' ? 'adding an object to' : 'replacing an area of'} this image. Return a JSON array.` }] },
-            config: { responseMimeType: "application/json" }
+            contents: {
+                parts: [imagePart, { text: `Suggest 3 ideas for ${context === 'add' ? 'adding objects' : 'replacing elements'}. Return a JSON array of strings.` }]
+            },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } }
+            }
         });
         return JSON.parse(response.text || "[]");
     });
 };
 
-export const generateCreativeText = async (image: File, type: string): Promise<{ text: string, color: string }> => {
+export const generateCreativeText = async (image: File, type: 'quote' | 'caption' | 'pun'): Promise<{ text: string, color: string }> => {
     return withRetry(async () => {
         const ai = getAiClient();
         const imagePart = await fileToGenerativePart(image);
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
-            contents: { parts: [imagePart, { text: `Generate a creative ${type} for this image and a suggested hex color for the text. Return JSON.` }] },
-            config: { 
+            contents: {
+                parts: [imagePart, { text: `Generate a creative ${type} and a suitable contrasting text color. Return JSON with 'text' and 'color'.` }]
+            },
+            config: {
                 responseMimeType: "application/json",
                 responseSchema: {
                     type: Type.OBJECT,
@@ -436,112 +689,183 @@ export const generateCreativeText = async (image: File, type: string): Promise<{
                 }
             }
         });
-        return JSON.parse(response.text || '{"text": "", "color": "#FFFFFF"}');
+        return JSON.parse(response.text || "{}");
     });
 };
 
-export const detectObjects = async (image: File, label: string): Promise<any[]> => {
-    return withRetry(async () => {
-        const ai = getAiClient();
-        const imagePart = await fileToGenerativePart(image);
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash-image",
-            contents: { parts: [imagePart, { text: `Detect [${label}] and return bounding boxes in JSON array.` }] },
-            config: { responseMimeType: "application/json" }
-        });
-        return JSON.parse(response.text || "[]");
-    });
-};
-
-export const generateSegmentationMask = async (image: File, label: string): Promise<string | null> => {
-    return withRetry(async () => {
-        const ai = getAiClient();
-        const imagePart = await fileToGenerativePart(image);
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash-image",
-            contents: { parts: [imagePart, { text: `Generate a segmentation mask for: ${label}` }] }
-        });
-        return handleApiResponse(response, 'mask');
-    });
-};
-
-export const generateExpansionSuggestions = async (image: File): Promise<any[]> => {
+export const detectObjects = async (image: File, label: string) => {
     return withRetry(async () => {
         const ai = getAiClient();
         const imagePart = await fileToGenerativePart(image);
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
-            contents: { parts: [imagePart, { text: "Suggest 4 directions and prompts for expanding this image. Return JSON array." }] },
-            config: { responseMimeType: "application/json" }
+            contents: {
+                parts: [imagePart, { text: `Detect bounding boxes for "${label}" in normalized coordinates [ymin, xmin, ymax, xmax] (0-1000). Return a JSON array of objects with 'box_2d'.` }]
+            },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            box_2d: { type: Type.ARRAY, items: { type: Type.NUMBER } }
+                        }
+                    }
+                }
+            }
+        });
+        const items = JSON.parse(response.text || "[]");
+        return items.map((i: any) => ({
+            ymin: i.box_2d[0], xmin: i.box_2d[1], ymax: i.box_2d[2], xmax: i.box_2d[3]
+        }));
+    });
+};
+
+export const generateSegmentationMask = async (image: File, label: string): Promise<string | null> => {
+    const boxes = await detectObjects(image, label);
+    if (boxes.length === 0) return null;
+    
+    const img = await new Promise<HTMLImageElement>((resolve) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.src = URL.createObjectURL(image);
+    });
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'white';
+    boxes.forEach(box => {
+        ctx.fillRect((box.xmin / 1000) * canvas.width, (box.ymin / 1000) * canvas.height, ((box.xmax - box.xmin) / 1000) * canvas.width, ((box.ymax - box.ymin) / 1000) * canvas.height);
+    });
+    
+    URL.revokeObjectURL(img.src);
+    return canvas.toDataURL('image/png');
+};
+
+export const generateExpansionSuggestions = async (image: File): Promise<Array<{ direction: 'top' | 'bottom' | 'left' | 'right', prompt: string }>> => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const response = await ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: {
+                parts: [imagePart, { text: "Suggest 4 directions and prompts for expanding this image. Return a JSON array of objects with 'direction' and 'prompt'." }]
+            },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            direction: { type: Type.STRING },
+                            prompt: { type: Type.STRING }
+                        }
+                    }
+                }
+            }
         });
         return JSON.parse(response.text || "[]");
     });
 };
 
-export const generateSketchImage = async (image: File, prompt: string) => _generateImageEdit(image, prompt, 'sketch-to-image');
+export const generateSketchImage = async (compositedImage: File, prompt: string) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(compositedImage);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image",
+            contents: {
+                parts: [imagePart, { text: `Render this sketch and base image together as: ${prompt}.` }]
+            },
+            config: { safetySettings }
+        });
+        return handleApiResponse(response, 'sketch');
+    });
+};
 
-export const generateFocusImage = async (image: File, intensity: string) => _generateImageEdit(image, `Apply a ${intensity} bokeh focus effect to the background.`, 'focus');
+export const generateFocusImage = async (image: File, intensity: string) => {
+    return withRetry(async () => {
+        const ai = getAiClient();
+        const imagePart = await fileToGenerativePart(image);
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-image",
+            contents: {
+                parts: [imagePart, { text: `Add ${intensity} background bokeh blur.` }]
+            },
+            config: { safetySettings }
+        });
+        return handleApiResponse(response, 'focus');
+    });
+};
 
-export const generateMergedImage = async (image1: File, image2: File, prompt: string) => {
+export const generateMergedImage = async (image1: File, image2: File, mergePrompt: string) => {
     return withRetry(async () => {
         const ai = getAiClient();
         const part1 = await fileToGenerativePart(image1);
         const part2 = await fileToGenerativePart(image2);
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash-image",
-            contents: { parts: [part1, part2, { text: prompt }] }
+            contents: {
+                parts: [part1, part2, { text: mergePrompt }]
+            },
+            config: { safetySettings }
         });
         return handleApiResponse(response, 'merge');
     });
 };
 
-export async function* chatWithGeminiStream(history: any[], message: string, file?: File, reasoning?: boolean) {
+export async function* chatWithGeminiStream(history: {role: string, text: string}[], message: string, file?: File, useReasoning?: boolean) {
     const ai = getAiClient();
-    const parts: Part[] = [];
-    if (file) parts.push(await fileToGenerativePart(file));
-    parts.push({ text: message });
+    const model = useReasoning ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
+    const contents: any[] = history.map(h => ({
+        role: h.role === 'user' ? 'user' : 'model',
+        parts: [{ text: h.text }]
+    }));
+    const currentParts: any[] = [];
+    if (message) currentParts.push({ text: message });
+    if (file) currentParts.push(await fileToGenerativePart(file));
+    if (currentParts.length > 0) contents.push({ role: 'user', parts: currentParts });
 
-    const contents: Content[] = history.map(h => ({ role: h.role, parts: [{ text: h.text }] }));
-    contents.push({ role: 'user', parts });
-
-    const stream = await ai.models.generateContentStream({
-        model: reasoning ? "gemini-3-pro-preview" : "gemini-3-flash-preview",
+    const response = await ai.models.generateContentStream({
+        model,
         contents,
-        config: { 
-            tools: [{ googleSearch: {} }],
-            thinkingConfig: reasoning ? { thinkingBudget: 32768 } : undefined
-        }
+        config: { tools: [{ googleSearch: {} }], safetySettings }
     });
 
-    for await (const chunk of stream) {
-        yield { 
-            text: chunk.text, 
-            groundingMetadata: chunk.candidates?.[0]?.groundingMetadata 
-        };
+    for await (const chunk of response) {
+        yield { text: chunk.text, groundingMetadata: chunk.candidates?.[0]?.groundingMetadata };
     }
 }
 
-export const analyzeVideo = async (video: File, prompt: string): Promise<string> => {
+export const analyzeVideo = async (videoFile: File, prompt: string): Promise<string> => {
     return withRetry(async () => {
         const ai = getAiClient();
-        const videoPart = await fileToGenerativePart(video);
+        const videoPart = await fileToGenerativePart(videoFile);
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
-            contents: { parts: [videoPart, { text: prompt }] }
+            contents: { parts: [videoPart, { text: prompt || "Describe this video." }] }
         });
-        return response.text || "";
+        return response.text || "Analysis failed.";
     });
 };
 
-export const transcribeAudio = async (audio: File): Promise<string> => {
-    return withRetry(async () => {
+export const transcribeAudio = async (audioFile: File): Promise<string> => {
+     return withRetry(async () => {
         const ai = getAiClient();
-        const audioPart = await fileToGenerativePart(audio);
+        const audioPart = await fileToGenerativePart(audioFile);
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
-            contents: { parts: [audioPart, { text: "Transcribe this audio." }] }
+            contents: { parts: [audioPart, { text: "Transcribe this audio precisely." }] }
         });
-        return response.text || "";
+        return response.text || "Transcription failed.";
     });
 };
 
@@ -556,24 +880,25 @@ export const generateSpeech = async (text: string): Promise<Uint8Array> => {
                 speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } }
             }
         });
-        const base64 = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-        if (!base64) throw new Error("No speech returned");
-        
-        const binaryString = atob(base64);
+        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        if (!base64Audio) throw new Error("No audio.");
+        const binaryString = atob(base64Audio);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
         return bytes;
     });
 };
 
-export const generateSmartReplies = async (messages: any[]): Promise<string[]> => {
+export const generateSmartReplies = async (history: {role: string, text: string}[]): Promise<string[]> => {
     return withRetry(async () => {
         const ai = getAiClient();
-        const historyText = messages.map(m => `${m.role}: ${m.text}`).join('\n');
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
-            contents: `Suggest 3 short replies to this history:\n${historyText}`,
-            config: { 
+            contents: [
+                ...history.map(h => ({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.text }] })),
+                { role: 'user', parts: [{ text: "Based on the chat, suggest 3 smart replies. Return JSON array." }] }
+            ],
+            config: {
                 responseMimeType: "application/json",
                 responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } }
             }

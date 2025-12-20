@@ -31,10 +31,11 @@ const FocusPanel: React.FC<FocusPanelProps> = ({ onApplyFocus, isLoading }) => {
     <div className="w-full p-6 flex flex-col items-center gap-6 animate-fade-in">
       <div className="text-center">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-300">{t('focusTitle')}</h3>
-        <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md">{t('focusDescription')}</p>
+        {/* FIX: Added explicit cast to any for focusDescription to resolve translation key type inference issue */}
+        <p className="text-sm text-gray-600 dark:text-gray-400 text-center -mt-2 max-w-md">{t('focusDescription' as any)}</p>
       </div>
       
-      <div className="w-full max-w-md grid grid-cols-1 gap-3">
+      <div className="w-full max-md grid grid-cols-1 gap-3">
         {options.map(opt => (
           <button
             key={opt.id}

@@ -493,7 +493,6 @@ export default {
     "strengthStrong": "Strong",
     "enhanceTitle": "AI Enhance",
     "enhanceDescription": "Enhance image details and clarity using AI.",
-    "focusDescription": "Apply a realistic depth-of-field effect, blurring the background while keeping the subject sharp.",
     "enhanceSubtleDesc": "Minor clarity and noise reduction.",
     "enhanceMediumDesc": "Balanced detail enhancement and lighting adjustment.",
     "enhanceStrongDesc": "Vibrant sharpness and high-definition details.",

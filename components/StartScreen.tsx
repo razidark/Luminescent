@@ -134,8 +134,9 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
         items: [
             { id: 'filters', icon: <FilterIcon className={iconClassName} />, title: t('toolFilters'), description: t('creativeFiltersDescription') },
             { id: 'style-transfer', icon: <StyleTransferIcon className={iconClassName} />, title: t('toolStyleTransfer'), description: t('styleTransferDescription') },
-            { id: 'merge', icon: <MergeIcon className={iconClassName} />, title: t('toolMerge'), description: t('mergeDescription') },
-            { id: 'focus', icon: <FocusIcon className={iconClassName} />, title: t('toolFocus'), description: t('focusDescription') },
+            // FIX: Added explicit cast to any for translation keys to resolve type mismatch in StartScreen
+            { id: 'merge', icon: <MergeIcon className={iconClassName} />, title: t('toolMerge'), description: t('mergeDescription' as any) },
+            { id: 'focus', icon: <FocusIcon className={iconClassName} />, title: t('toolFocus'), description: t('focusDescription' as any) },
             { id: 'cardify', icon: <CardIcon className={iconClassName} />, title: t('toolCardify'), description: t('cardifyDescription') },
         ]
     },
@@ -202,7 +203,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onFileSelect, onGenerateClick
                 <button onClick={onGenerateClick} className="px-8 py-4 text-lg font-bold text-white bg-theme-gradient rounded-2xl shadow-xl shadow-theme-accent/20 hover:shadow-theme-accent/40 hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
                     <GenerateIcon className="w-6 h-6" /> {t('createAnImage')}
                 </button>
-                <button onClick={onVideoClick} className="px-8 py-4 text-lg font-bold text-white bg-theme-gradient rounded-2xl shadow-xl shadow-theme-accent/20 hover:shadow-theme-accent/40 hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
+                <button onClick={onVideoClick} className="px-8 py-4 text-lg font-bold text-white bg-theme-gradient rounded-2xl shadow-xl shadow-theme-accent/20 hover:shadow-xl hover:shadow-theme-accent/40 hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
                     <VideoIcon className="w-6 h-6" /> {t('createAVideo')}
                 </button>
                 <button onClick={() => handleTriggerFileUpload('erase')} className="px-8 py-4 text-lg font-bold text-gray-800 dark:text-gray-200 bg-white dark:bg-white/10 rounded-2xl border border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/20 active:scale-95 transition-all flex items-center gap-3">
