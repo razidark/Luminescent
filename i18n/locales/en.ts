@@ -589,7 +589,6 @@ export default {
     "inspectorLighting": "Lighting",
     "inspectorPalette": "Color Palette",
     "inspectorPrompt": "Recreation Prompt",
-    // FIX: Added missing changelog keys
     "changelogCategoryNew": "New",
     "changelogCategoryImprovement": "Improvement",
     "changelogCategoryFix": "Fix",

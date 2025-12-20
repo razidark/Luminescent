@@ -7,13 +7,11 @@ import * as React from 'react';
 import { LuminescenceIcon, UploadIcon, BookIcon, ChatIcon, QuestionMarkIcon, HistoryIcon } from './icons';
 import AnalogClock from './AnalogClock';
 import { useLanguage } from '../contexts/LanguageContext';
-// FIX: Corrected import syntax for ThemeSelector
 import ThemeSelector from './ThemeSelector';
 import ModeSelector from './ModeSelector';
 import BackgroundSelector from './BackgroundSelector';
 import LanguageSelector from './LanguageSelector';
 
-// Internal component to handle time updates independently
 const DigitalClock: React.FC = () => {
     const { language } = useLanguage();
     const [currentTime, setCurrentTime] = React.useState(new Date());
@@ -77,7 +75,6 @@ const Header: React.FC<HeaderProps> = ({
   const { t } = useLanguage();
   const [isLoggedIn, setIsLoggedIn] = React.useState(false);
 
-  // Check initial login state
   React.useEffect(() => {
       const checkKey = async () => {
           if (typeof (window as any).aistudio !== 'undefined' && (window as any).aistudio.hasSelectedApiKey) {
@@ -92,11 +89,14 @@ const Header: React.FC<HeaderProps> = ({
       if (typeof (window as any).aistudio !== 'undefined' && (window as any).aistudio.openSelectKey) {
           try {
               await (window as any).aistudio.openSelectKey();
-              // Assume success as per race condition instructions to proceed to app
+              // Assume success as per Gemini API safety guidelines for race conditions
               setIsLoggedIn(true);
           } catch (e) {
               console.error("Login failed", e);
           }
+      } else {
+          // Fallback if accessed outside of AI Studio wrapper
+          window.open('https://ai.google.dev/gemini-api/docs/billing', '_blank');
       }
   };
 
@@ -164,23 +164,29 @@ const Header: React.FC<HeaderProps> = ({
 
              <div className="h-8 w-px bg-gray-300 dark:bg-gray-700 hidden lg:block mx-1"></div>
             
-            {/* Login / Profile Section */}
-            <button
-                onClick={handleLoginToggle}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all border ${isLoggedIn ? 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400' : 'bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300'} group relative`}
-                data-tooltip-id="app-tooltip"
-                data-tooltip-content={isLoggedIn ? t('connectedStatus') : t('loginWithGoogle')}
-            >
-                <div className="relative">
-                    <svg xmlns="http://www.w3.org/2000/svg" className={`w-5 h-5 ${isLoggedIn ? 'text-green-500' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    {isLoggedIn && <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-green-500 ring-2 ring-white dark:ring-gray-900 animate-pulse"></span>}
-                </div>
-                <span className="text-xs font-black uppercase tracking-widest hidden sm:inline">
-                    {isLoggedIn ? t('online') : t('loginWithGoogle')}
-                </span>
-            </button>
+            <div className="flex flex-col items-end">
+                <button
+                    onClick={handleLoginToggle}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all border ${isLoggedIn ? 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400' : 'bg-gray-100 dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-700 dark:text-gray-300'} group relative`}
+                    data-tooltip-id="app-tooltip"
+                    data-tooltip-content={isLoggedIn ? t('connectedStatus') : t('loginWithGoogle')}
+                >
+                    <div className="relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" className={`w-5 h-5 ${isLoggedIn ? 'text-green-500' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        {isLoggedIn && <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-green-500 ring-2 ring-white dark:ring-gray-900 animate-pulse"></span>}
+                    </div>
+                    <span className="text-xs font-black uppercase tracking-widest hidden sm:inline">
+                        {isLoggedIn ? t('online') : t('loginWithGoogle')}
+                    </span>
+                </button>
+                {!isLoggedIn && (
+                    <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="text-[9px] text-gray-400 hover:text-theme-accent transition-colors mt-1 uppercase tracking-tighter font-bold">
+                        Billing Info &raquo;
+                    </a>
+                )}
+            </div>
 
             <button
               onClick={onUploadClick}
