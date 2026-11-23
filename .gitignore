@@ -1,6 +1,1 @@
-node_modules/
-dist/
-dist-electron/
-.vercel/
-.env*
-*.log
+﻿node_modules/
