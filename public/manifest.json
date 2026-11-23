@@ -1,0 +1,18 @@
+{
+  "short_name": "Luminescent",
+  "name": "Luminescent | Creative AI Studio",
+  "description": "Next-gen Creative AI Photo Editor & Audio Visualizer",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#0a0a0a",
+  "background_color": "#0a0a0a",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ]
+}

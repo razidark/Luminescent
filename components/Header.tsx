@@ -1,0 +1,176 @@
+
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+*/
+import * as React from 'react';
+import { LuminescenceIcon, UploadIcon, BookIcon, ChatIcon, QuestionMarkIcon, HistoryIcon, WrenchIcon } from './icons';
+import AnalogClock from './AnalogClock';
+import { useLanguage } from '../contexts/LanguageContext';
+import ThemeSelector from './ThemeSelector';
+import ModeSelector from './ModeSelector';
+import BackgroundSelector from './BackgroundSelector';
+
+// Internal component to handle time updates independently
+const DigitalClock: React.FC = () => {
+    const { language } = useLanguage();
+    const [currentTime, setCurrentTime] = React.useState(new Date());
+
+    React.useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(new Date());
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const formatDate = (date: Date) => {
+        return date.toLocaleDateString(language.replace('_', '-'), {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+    };
+
+    const formatTime = (date: Date) => {
+        return date.toLocaleTimeString(language.replace('_', '-'), {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+        });
+    };
+
+    return (
+        <div className="text-right hidden xl:block">
+            <div className="font-mono text-lg font-bold text-gray-800 dark:text-gray-200 tracking-wider leading-none" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                {formatTime(currentTime)}
+            </div>
+            <div className="text-[10px] uppercase font-semibold tracking-widest text-gray-500 dark:text-gray-400 mt-0.5">
+                {formatDate(currentTime)}
+            </div>
+        </div>
+    );
+};
+
+interface HeaderProps {
+    onUploadClick: () => void;
+    onWikiClick: () => void;
+    onGoHome: () => void;
+    onShortcutsClick?: () => void;
+    onSettingsClick?: () => void;
+    onHistoryClick?: () => void;
+    isHistoryAvailable?: boolean;
+}
+
+const Header: React.FC<HeaderProps> = ({ 
+    onUploadClick, 
+    onWikiClick, 
+    onGoHome,
+    onShortcutsClick,
+    onSettingsClick,
+    onHistoryClick,
+    isHistoryAvailable
+}) => {
+  const { t } = useLanguage();
+
+  return (
+    <header className="w-full py-2.5 px-4 md:px-8 glass sticky top-0 z-50 border-b-0 shadow-sm transition-all duration-300">
+      <div className="flex items-center justify-between max-w-[1920px] mx-auto">
+        <div className="flex-1 flex justify-start items-center gap-4">
+            <AnalogClock className="hidden sm:block" />
+             {/* Navigation Controls */}
+             <div className="flex items-center gap-1">
+                {onShortcutsClick && (
+                    <button
+                        onClick={onShortcutsClick}
+                        className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/70 dark:hover:bg-white/10 rounded-xl transition-all duration-200 active:scale-90"
+                        data-tooltip-id="app-tooltip"
+                        data-tooltip-content={t('showShortcuts')}
+                    >
+                        <QuestionMarkIcon className="w-4.5 h-4.5" />
+                    </button>
+                )}
+                {isHistoryAvailable && onHistoryClick && (
+                    <button
+                        onClick={onHistoryClick}
+                        className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white hover:bg-gray-200/70 dark:hover:bg-white/10 rounded-xl transition-all duration-200 active:scale-90"
+                        data-tooltip-id="app-tooltip"
+                        data-tooltip-content={t('showHistory')}
+                    >
+                        <HistoryIcon className="w-4.5 h-4.5" />
+                    </button>
+                )}
+            </div>
+        </div>
+        
+        <div className="flex flex-col items-center justify-center">
+            <button 
+                onClick={onGoHome} 
+                data-tooltip-id="app-tooltip"
+                data-tooltip-content={t('goHome')}
+                className="flex items-center gap-3 group focus:outline-none focus-visible:ring-2 ring-offset-2 ring-offset-white dark:ring-offset-black ring-theme-accent rounded-xl p-2 transition-all active:scale-95 hover:bg-white/10 dark:hover:bg-white/5"
+            >
+              <div className="relative">
+                  <div className="absolute inset-0 bg-theme-accent/50 blur-lg rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse"></div>
+                  <LuminescenceIcon className="w-8 h-8 relative z-10 group-hover:scale-110 transition-transform duration-300" />
+              </div>
+              <h1 className="text-2xl font-extrabold tracking-tight text-theme-gradient group-hover:brightness-110 transition-all hidden md:block"
+                  style={{ backgroundSize: '200% 200%', animation: 'animated-gradient-text 5s ease infinite' }}>
+                Luminescent
+              </h1>
+            </button>
+            <div className="w-full max-w-[120px] h-0.5 bg-theme-gradient mt-1 rounded-full opacity-80 blur-[1px] hidden md:block"
+                style={{ backgroundSize: '200% 200%', animation: 'animated-gradient-text 5s ease infinite reverse' }} />
+        </div>
+        
+        <div className="flex-1 flex justify-end items-center gap-4">
+            
+            <DigitalClock />
+
+             <div className="h-7 w-px bg-gray-300/60 dark:bg-gray-700/60 hidden lg:block mx-1"></div>
+            <button
+              onClick={onUploadClick}
+              data-tooltip-id="app-tooltip"
+              data-tooltip-content={t('startWithNewImage')}
+              aria-label={t('uploadNew')}
+              className="flex items-center gap-2 px-3.5 py-1.5 bg-gray-100/80 dark:bg-white/5 border border-gray-200/60 dark:border-white/10 text-gray-700 dark:text-gray-300 rounded-xl transition-all duration-200 hover:bg-gray-200/80 dark:hover:bg-white/10 font-semibold text-sm group hover:shadow-md active:scale-95"
+            >
+              <UploadIcon className="w-4 h-4 group-hover:-translate-y-0.5 transition-transform duration-300" />
+              <span className="hidden sm:inline">{t('uploadNew')}</span>
+            </button>
+            
+            <div className="flex items-center gap-1 p-1 bg-gray-100/50 dark:bg-white/5 border border-gray-200/60 dark:border-white/10 rounded-2xl backdrop-blur-sm shadow-sm">
+                <button
+                onClick={onWikiClick}
+                data-tooltip-id="app-tooltip"
+                data-tooltip-content={t('wikiTitle')}
+                className="p-2 bg-transparent rounded-xl transition-all duration-200 hover:bg-gray-200/70 dark:hover:bg-white/10 active:scale-90"
+                >
+                <BookIcon className="w-4.5 h-4.5 text-gray-600 dark:text-gray-400" />
+                </button>
+                <div className="w-px h-4 bg-gray-300/50 dark:bg-gray-700/50 mx-0.5"></div>
+                {onSettingsClick && (
+                    <>
+                        <button
+                            onClick={onSettingsClick}
+                            data-tooltip-id="app-tooltip"
+                            data-tooltip-content="AI Settings"
+                            className="p-2 bg-transparent rounded-xl transition-all duration-200 hover:bg-gray-200/70 dark:hover:bg-white/10 active:scale-90"
+                        >
+                            <WrenchIcon className="w-4.5 h-4.5 text-gray-600 dark:text-gray-400" />
+                        </button>
+                        <div className="w-px h-4 bg-gray-300/50 dark:bg-gray-700/50 mx-0.5"></div>
+                    </>
+                )}
+                <BackgroundSelector />
+                <ThemeSelector />
+                <ModeSelector />
+            </div>
+        </div>
+      </div>
+    </header>
+  );
+};
+
+export default React.memo(Header);

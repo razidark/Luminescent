@@ -1,0 +1,56 @@
+{
+  "name": "rzl-luminescent",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Futuristic 3D Canvas Audio Visualizer (RZL Apps)",
+  "author": "RZL Apps",
+  "type": "module",
+  "main": "electron-main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "electron": "wait-on http://127.0.0.1:3002 && electron .",
+    "electron:dist": "vite build && electron-builder"
+  },
+  "dependencies": {
+    "@google/genai": "^1.10.0",
+    "dotenv": "^17.4.1",
+    "gifshot": "0.4.5",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-image-crop": "^11.0.6",
+    "react-tooltip": "^5.27.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^6.0.0",
+    "electron": "^42.2.0",
+    "electron-builder": "^26.15.3",
+    "typescript": "~5.8.2",
+    "vite": "^8.0.0",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.luminescent.app",
+    "productName": "Luminescent",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron-main.cjs",
+      "preload.cjs"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
